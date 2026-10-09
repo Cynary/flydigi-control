@@ -42,6 +42,39 @@ Flow uses the numeric frames from the service’s generic preset, cropped to the
 
 Each UI upload first saves a backup beneath `~/.local/state/flydigi-control/`. Changes are temporary: no flash-save command is sent. Missing acknowledgements for indexed LED chunks are retried once after a read-only query, followed by whole-configuration verification. A missing acknowledgement is not itself proof that a write failed.
 
+## Settings persistence
+
+The current application uploads working settings but does not save them onboard.
+The user confirmed that reconnecting the Vader restores its previous lights.
+Saving the last successfully applied settings is required before release, including
+color, brightness, animation and speed. Turbo, Fn shortcuts and native-mapping
+permission need their own off/on checks rather than assuming they share the LED
+persistence mechanism.
+
+Inspection of Space Station 4.2.0.9 found an onboard-save operation:
+`ControllerRepository.SaveConfig` calls `PermanentSaveMappingConfig` with a new
+16-bit version identifier. The SDK's NewXInput save command is `0xA6`, carrying
+that identifier little-endian. The service generates a different identifier from
+the current profile's version. This saves the active configuration; it is not
+an LED-only save command. No such command has been sent in our hardware tests.
+
+Prefer onboard persistence if testing confirms that saving leaves all unrelated
+mapping and calibration settings intact. Back up the active configuration first,
+verify the lighting upload, save once after an explicit Apply, then check an
+off/on cycle with the app closed. Do not repeatedly write onboard storage during
+reconnection or slider movement. Acknowledgment and immediate readback alone do
+not prove that settings survive power loss.
+
+If onboard saving cannot safely preserve the rest of the profile, use PC-side
+storage and a reconnect helper that runs without the UI. It must remember only
+successful changes, distinguish controllers and profiles, bound retries, and avoid
+changing Steam's ownership or input mode during lighting restoration. Settings
+changed on another computer should not be silently overwritten by an old local
+copy.
+
+The kernel-panic investigation is still open. These are source-level findings;
+no new persistence commands or reconnect service have been deployed.
+
 ## Evidence locations
 
 Installer SHA-256: `736070b18d99ef77b0eb4622fb670613cf86b6fcc1bcded923a4bae8dfdc373a`.

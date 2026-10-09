@@ -8,14 +8,17 @@ sees the physical controls.
 | Requirement | Evidence so far | Still needed |
 | --- | --- | --- |
 | M1–M4, C/Z, LM/RM, Fn, Turbo | All ten captured from hardware and delivered as assigned keyboard actions through Steam Input; paddle labels confirmed in an ordered test | Turbo reports a short pulse rather than a held state |
+| Settings persistence | User reports lighting resets on reconnect; current app sends only temporary changes | Most recently applied settings must survive controller off/on, receiver replug and PC restart with the app closed; validate each exposed setting separately |
 | LEDs | Steady, breathing and gradient configurations pass complete readback; user confirmed corrected colors | Visual animation and brightness/off checks |
 | Steam Input | All ten extra controls accept bindings in Steam's editor. Native/fallback transitions expose one controller and release stale button state | Physical binding delivery |
 | Couch app | Installed image app launches through its Steam shortcut; user operated the color picker and button test; automated navigation checks pass | Off/on recovery confirmed by user; navigation polish remains |
 | Wake | Receiver `37d7:2401` reports `bmAttributes=0x80`, without remote wake; Linux has no device wake control | No supported controller-wake method found; no wake policy is installed |
 | Image | Earlier candidate built and booted; newer reconnect/battery SDL stage passed all regression suites | New full candidate build/boot and remaining physical checks before promotion |
 
-Lighting changes are deliberately temporary: controller power-off restores its
-stored lighting. Persistence is not implemented through a firmware flash write.
+Lighting changes are currently temporary: controller power-off restores its
+stored lighting. This is an unfinished requirement, not the intended final behavior.
+The app must retain the last successfully applied settings without needing to be
+reopened. See [persistence findings](LIGHTING.md#settings-persistence).
 
 The booted candidate and exact source revisions are recorded in Moonmachine's
 [Flydigi integration notes](https://github.com/Cynary/bazzite-k17/blob/flydigi-integration/docs/FLYDIGI.md).
