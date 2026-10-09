@@ -528,11 +528,9 @@ class Window(QWidget):
 
 
 def run(screenshot=None):
-    folder = Path(os.environ.get('XDG_STATE_HOME', str(Path.home() / '.local/state'))) / 'flydigi-control'
-    folder.mkdir(parents=True, exist_ok=True)
-    from logging.handlers import RotatingFileHandler
+    from .app_logging import create_handler
     logging.basicConfig(level=logging.INFO, format='%(asctime)s %(message)s',
-                        handlers=[RotatingFileHandler(folder / 'app.log', maxBytes=256*1024, backupCount=2)])
+                        handlers=[create_handler()])
     logging.info("App source: %s", __file__)
     application = QApplication(sys.argv[:1])
     window = Window()
