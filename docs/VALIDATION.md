@@ -125,3 +125,17 @@ capabilities again. Physical validation of every extra button remains pending.
 
 All 23 unit/UI tests pass on the K17. An offscreen screenshot was inspected for
 clipped controls. Visual color/animation confirmation is still pending.
+
+
+## Complete physical button capture, 2026-10-08
+
+A 60-second passive test received 27,339 reports and observed all 27 named
+button states, including M1–M4, C/Z, LM/RM, Fn, Turbo and the digital trigger
+thresholds. No button was missing. The 184 button-change reports replayed
+successfully through the patched SDL V2 parser. This proves the reports and
+parser agree; it does not yet prove the Steam binding UI exposes Turbo.
+
+The app's current RGB/multicolor editor passes 26 tests on the K17. The app is
+installed and launched from its Steam shortcut. The user confirmed the corrected color looks better and that the test screen
+recognized every button. Flow animation still needs visual confirmation. LED uploads keep backups and
+verify the complete controller readback.
