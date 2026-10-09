@@ -263,3 +263,13 @@ its API call generated no USB command during a five-second capture. The examined
 vendor SDK has sleep commands for legacy protocols, but no dedicated NewXInput
 version for this controller. Hold Home for about five seconds to use the
 controller's own shutdown behavior. Remote shutdown remains unsupported.
+
+## Rumble through Steam
+
+Steam Identify sent a command beginning `03 5A A5`, but this receiver requires
+unnumbered reports beginning `5A A5` on USB. Configuration already handled this;
+the separate asynchronous rumble worker bypassed that correction. The fork now
+uses a zero HIDAPI report ID for Vader V2 rumble. A new USB capture confirmed
+correct start and stop packets, and the user confirmed feeling Steam's pulse.
+The callback regression checks both motors, stop, other models' framing and
+write errors. Trigger-motor rumble is not implemented in SDL yet.
