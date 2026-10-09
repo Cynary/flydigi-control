@@ -4,8 +4,8 @@ import unittest
 from unittest.mock import patch
 from dataclasses import replace
 from flydigi_control import protocol
-from flydigi_control.macro_bank import decode_bank, replace_macro
-from flydigi_control.persistence import apply_macro
+from flydigi_control.macro_bank import decode_bank, replace_macro, remove_macro
+from flydigi_control.persistence import apply_macro,remove_saved_macro
 from flydigi_control.transport import ConfigurationDevice
 from test_persistence import Controller
 from test_macro_bank import empty_bank, sample
@@ -131,3 +131,31 @@ class MacroEditTests(unittest.TestCase):
             with self.assertRaises(ValueError):protocol.macro_write_start(0,start,count)
         bad = bytearray(empty_bank());bad[1] = 2
         with self.assertRaises(ValueError):decode_bank(bad)
+
+    def test_removal_preserves_other_macros_and_restores_default_button(self):
+        self.device.macros=replace_macro(replace_macro(empty_bank(),sample(18)),sample(19))
+        self.device.mapping[67:70]=bytes([32,0,0])
+        before=decode_bank(self.device.macros).records[1].raw
+        with tempfile.TemporaryDirectory() as folder:
+            remove_saved_macro(self.device,bytes(self.device.mapping),self.device.macros,18,folder,expected_profile=1)
+        after=decode_bank(self.device.macros)
+        self.assertEqual(len(after.records),1);self.assertEqual(after.records[0].raw,before)
+        self.assertEqual(self.device.mapping[67:70],bytes([255,0,0]))
+        self.assertEqual([kind for kind,_ in self.device.writes],['mapping','macros','save'])
+
+    def test_remove_unknown_mapping_or_absent_macro_never_writes(self):
+        for marker in (254,33):
+            self.device=MacroController();self.device.macros=replace_macro(empty_bank(),sample())
+            self.device.mapping[67:70]=bytes([marker,0,0])
+            with self.assertRaises(ValueError):
+                remove_saved_macro(self.device,bytes(self.device.mapping),self.device.macros,18,self.tmp.name,expected_profile=1)
+            self.assertEqual(self.device.writes,[])
+        self.device=MacroController()
+        with self.assertRaises(ValueError):
+            remove_saved_macro(self.device,self.mapping,empty_bank(),18,self.tmp.name,expected_profile=1)
+        self.assertEqual(remove_macro(empty_bank(),18),empty_bank())
+
+    def test_incomplete_macro_never_reaches_hardware(self):
+        with self.assertRaises(ValueError):
+            apply_macro(self.device,self.mapping,self.macros,replace(sample(),actions=sample().actions[:1]),self.tmp.name,expected_profile=1)
+        self.assertEqual(self.device.writes,[])

@@ -19,7 +19,8 @@ from .analog_ui import AnalogPanel, AnalogTest
 from .motor_ui import MotorPanel, MotorTest
 from .curve_ui import CurvePanel
 from .profile_ui import ProfilePanel, ProfileOperation
-from .macro_ui import MacroPanel, MacroOperation
+from .macro_ui import MacroPanel, MacroOperation, MacroRecording
+from .name_ui import NamePanel
 from .hardware_ui import HardwarePanel, HardwareOperation
 from .button_ui import ButtonMappingPanel
 from .motion_ui import MotionPanel
@@ -392,7 +393,14 @@ class Window(QWidget):
         self.macro_panel.back.clicked.connect(lambda: self.pages.setCurrentIndex(1))
         self.macro_panel.read.clicked.connect(lambda: self.macro_operation())
         self.macro_panel.save.clicked.connect(lambda: self.macro_operation(save=True))
+        self.macro_panel.delete_requested.connect(lambda:self.macro_operation(remove=True))
+        self.macro_panel.record.clicked.connect(self.record_macro)
+        self.macro_panel.rename.clicked.connect(self.rename_macro)
         self.pages.addWidget(self.macro_panel)
+        self.name_panel=NamePanel()
+        self.name_panel.accepted.connect(self.accept_macro_name)
+        self.name_panel.cancelled.connect(lambda:self.pages.setCurrentIndex(12))
+        self.pages.addWidget(self.name_panel)
         self.macro_settings = QPushButton('Onboard macros')
         self.macro_settings.clicked.connect(lambda: self.pages.setCurrentIndex(12))
         self.pages.widget(1).layout().addWidget(self.macro_settings)
@@ -404,7 +412,7 @@ class Window(QWidget):
                          self.analog_tab, self.analog_start, self.motor_tab, *self.motor_panel.controls,
                          self.stick_response, *self.curve_panel.controls,
                          self.trigger_settings,self.grip_settings,*self.trigger_panel.controls,*self.grip_panel.controls,
-                         self.hardware_settings,*self.hardware_panel.controls,self.button_settings,*self.button_panel.controls,self.motion_settings,*self.motion_panel.controls,self.macro_settings,*self.macro_panel.controls]
+                         self.hardware_settings,*self.hardware_panel.controls,self.button_settings,*self.button_panel.controls,self.motion_settings,*self.motion_panel.controls,self.macro_settings,*self.macro_panel.controls,*self.name_panel.controls]
         for control in self.controls:
             control.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
         try:
@@ -616,12 +624,13 @@ class Window(QWidget):
         self.hardware_panel.result.setText(text)
         self.feature_values = {}  # old Turbo/Fn state must be reread too
 
-    def macro_operation(self, save=False):
+    def macro_operation(self, save=False, remove=False):
         panel = self.macro_panel
-        if self.worker is not None or not self.devices or (save and panel.snapshot is None):
+        if self.worker is not None or not self.devices or ((save or remove) and panel.snapshot is None):
             return
         macro = panel.macro() if save else None
-        self.worker = MacroOperation(self.device_box.currentData(), panel.snapshot, macro, self)
+        self.worker = MacroOperation(self.device_box.currentData(), panel.snapshot, macro, self,
+                                     remove_key=panel.source.currentIndex() if remove else None)
         self.worker.values.connect(panel.load)
         def result(ok, text):
             if not ok: panel.clear()
@@ -631,6 +640,30 @@ class Window(QWidget):
         panel.result.setText('Backing up and verifying profile…' if save else 'Reading active macro bank…')
         self.show_device()
         self.worker.start()
+
+    def rename_macro(self):
+        if self.worker is not None or self.macro_panel.snapshot is None:return
+        self.name_panel.set_value(self.macro_panel.name)
+        self.pages.setCurrentIndex(13);self.name_panel.keys[0].setFocus()
+
+    def accept_macro_name(self,name):
+        if self.macro_panel.snapshot is not None:
+            self.macro_panel.name=name;self.macro_panel.validate()
+        self.pages.setCurrentIndex(12);self.macro_panel.rename.setFocus()
+
+    def record_macro(self):
+        panel=self.macro_panel
+        if self.worker is not None or not self.devices or panel.snapshot is None:return
+        self.testing=True
+        self.worker=MacroRecording(self.device_box.currentData(),panel.recording_capacity(),self)
+        self.worker.actions.connect(panel.set_recording)
+        self.worker.progress.connect(lambda value:panel.result.setText(
+            (f'Recording: {value["actions"]} actions · {value["remaining"]}s left' if value['armed'] else
+             'Release all buttons and center both sticks to start.')))
+        self.worker.result.connect(lambda ok,text:panel.result.setText(text))
+        self.worker.finished.connect(self.button_test_finished)
+        panel.result.setText('Release all controls, then record for 15 seconds. Navigation is disabled.')
+        self.show_device();self.worker.start()
 
     def profile_operation(self,panel,save=False):
         if self.worker is not None or not self.devices or (save and panel.mapping is None):
@@ -772,7 +805,8 @@ class Window(QWidget):
         self.worker = None
         self.testing = False
         self.show_device()
-        (self.analog_start if self.pages.currentIndex() == 4 else self.test_start).setFocus()
+        (self.macro_panel.record if self.pages.currentIndex()==12 else
+         self.analog_start if self.pages.currentIndex() == 4 else self.test_start).setFocus()
 
     def poll_navigation(self):
         if self.navigation is None:

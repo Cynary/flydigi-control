@@ -30,7 +30,8 @@ are superseded by this table and the later results.
 Format-3.2 saves now require backing up and verifying the separate macro bank.
 The macro codec matches four byte vectors from the vendor serializer. No macro
 read has been captured from this controller yet. The candidate now includes a
-controller-operated action editor and guarded AD/AE upload; it has not been
+controller-operated action editor, passive recorder, on-screen naming and guarded
+AD/AE upload/removal; it has not been
 installed and no macro writes have been sent to hardware.
 See [macro research and limits](MACROS.md).
 
@@ -51,7 +52,7 @@ calibration, rebound suppression, precision, center sensitivity and sleep contro
 Its packet and UI checks pass, but these new commands have not been sent to hardware.
 [Protocol details and remaining checks](HARDWARE-SETTINGS.md).
 
-2026-10-09: The `onboard-settings` candidate passes 146 protocol, persistence,
+2026-10-09: The `onboard-settings` candidate passes 163 protocol, persistence,
 diagnostic and Qt tests on the K17. Offscreen previews of the stick settings and
 analog/motor/response/trigger/grip/global-settings/button/motion-mapping/macro pages were inspected, using simulated input or
 the saved read-only profile. Curve samples

@@ -103,8 +103,8 @@ def _encode_macro(macro, previous=None):
         if elapsed>65535:
             raise ValueError('Macro duration exceeds 65,535 ms')
         # New events are restricted to the documented buttons/directional
-        # stick actions. Hold=5 is recognized by the reader but not generated
-        # until its payload semantics are established.
+        # stick actions. The vendor editor expands Hold=5 into press/release
+        # before upload, so it is not emitted as an onboard event.
         if action.event in (0,1):
             _integer(action.key,0,23,'Action button')
         elif action.event in (2,3):
@@ -127,6 +127,39 @@ def replace_macro(blob, macro):
         return bank.raw
     records=[record if r is previous else r.raw for r in bank.records]
     if previous is None:records.append(record)
+    return _pack(bank, records)
+
+
+def remove_macro(blob, key):
+    """Remove one activation record; preserve every other record byte-for-byte."""
+    _integer(key,0,23,'Activation button')
+    bank=decode_bank(blob)
+    records=[r.raw for r in bank.records if r.macro.key!=key]
+    return bank.raw if len(records)==len(bank.records) else _pack(bank,records)
+
+
+def validate_execution(macro):
+    """Require balanced presses before upload, as the official editor does.
+
+    Drafts may be incomplete while being edited. Hold is represented by a press
+    and a later release, not event 5 on the wire.
+    """
+    _encode_macro(macro)
+    pressed=set()
+    for action in macro.actions:
+        if action.event==1:
+            if action.key in pressed:
+                raise ValueError('A button is pressed twice without a release')
+            pressed.add(action.key)
+        elif action.event==0:
+            if action.key not in pressed:
+                raise ValueError('A release is missing its preceding press')
+            pressed.remove(action.key)
+    if pressed:
+        raise ValueError('Add a release for every pressed button before saving')
+
+
+def _pack(bank, records):
     if len(records)>MAX_MACROS:
         raise ValueError('The controller supports at most 10 macros')
     if sum((len(raw)-32)//4 for raw in records)>MAX_ACTIONS:

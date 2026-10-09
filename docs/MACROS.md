@@ -26,8 +26,10 @@ byte 24. Each macro has a 32-byte header and four bytes per action:
 
 The official repository limits the bank to ten macros and 256 total actions.
 Repeat modes are disabled, once, while held, and toggle. Button press/release and
-left/right stick direction events have known encodings. Event 5 (Hold) still
-needs investigation before generating it; the reader preserves unknown events.
+left/right stick direction events have known encodings. The official frontend
+uses Hold (event 5) only while editing: it expands a hold into press/release
+actions before saving. We likewise upload separate presses and releases, and
+reject missing or duplicate edges. The reader still preserves unknown events.
 Our encoder rejects timestamp overflow and overlong names rather than silently
 wrapping or cutting a UTF-8 character.
 
@@ -39,8 +41,33 @@ insert button press/release or stick-direction actions with delays. Actions can
 be replaced, removed and reordered. The summary shows the action count and total
 duration. Editing a draft sends no commands; Save performs the transaction below.
 Names from existing macros are preserved; new macros receive a name based on the
-activation button. Renaming, recording live input and deleting an entire macro
-are not implemented yet. Disabled mode retains the macro in its bank slot.
+activation button. Rename opens a controller-operated keyboard. It preserves
+existing Unicode names and accepts ASCII letters, digits, spaces and punctuation
+within the bank's 20-byte UTF-8 limit. A local macro library, file exchange and
+an international on-screen keyboard remain future work.
+
+Record 15 seconds listens to native HID input without acquiring the controller,
+changing its mode or writing any settings. Release all controls first, so the
+button used to start recording is excluded. App navigation stays disabled during
+recording. The result replaces the draft's actions; review it before saving.
+It captures all 24 remappable button edges and eight-way stick directions. Stick
+movement above half travel selects a direction; this is our recorder threshold,
+not a change to the controller's deadzone. Timings use local monotonic receipt
+times and millisecond deltas. The first action starts at zero.
+
+The recorder reserves room for releases and stick-centering actions. At the
+recording/action limit it closes held controls instead of leaving them active.
+A disconnect or missing native reports aborts recording without applying it.
+Receiver removal also clears the profile snapshot and requires a fresh read.
+Fn, Turbo and Home are excluded because they are not onboard macro targets.
+
+Remove saved macro requires confirmation. It restores the selected button's
+ordinary output, removes its record and compacts the remaining bank without
+rewriting unrelated records. This matches the vendor `UpdateConfig` order:
+base mapping first, macro bank second, then permanent save after verification.
+Disabled mode instead retains the macro and its bank slot. The official app's
+Delete Local Macro operation deletes a PC library file; it does not by itself
+remove a macro already applied to a controller.
 
 The replacement function preserves every other macro's full record. The
 candidate writer uses AD to select a changed range and AE for its 20-byte chunks,
@@ -74,7 +101,8 @@ and changes observed after saving. Transaction tests cover stale editor snapshot
 backup failure, interrupted chunk writes, active-profile changes and preservation
 of every unrelated record. The Qt tests cover building/reordering actions,
 controller navigation, unknown events, all activation-button defaults and 1080p
-layout. An offscreen preview was inspected with synthetic macro data.
+layout. Recorder tests cover overlapping presses, shared timestamps, held-control
+closure, input/action limits, clock errors and exclusion of firmware shortcuts. An offscreen preview was inspected with synthetic macro data.
 These validate our implementation against
 the format; they do not establish device behavior or power-cycle persistence.
 

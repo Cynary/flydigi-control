@@ -58,7 +58,7 @@ class ButtonMappingPanel(QWidget):
                 self.valid_read=True
                 self.details.setText(f'Profile {self.profile+1}. Only this button’s record will change.')
             else:
-                self.details.setText({'macro':'This button has a macro. The macro editor is not implemented yet.',
+                self.details.setText({'macro':'This button has a macro. Open Onboard macros in Controller settings to edit or remove it.',
                     'keyboard_mouse':'This button uses a PC keyboard/mouse mapping. It is preserved unchanged.',
                     'unknown':f'Unrecognized record: {value.raw.hex()}. Editing is disabled.'}[value.kind])
         except ValueError as error:

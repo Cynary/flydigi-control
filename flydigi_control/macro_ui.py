@@ -4,8 +4,8 @@ from pathlib import Path
 from PySide6.QtCore import Qt, QThread, Signal
 from PySide6.QtWidgets import QWidget, QLabel, QPushButton, QComboBox, QSlider, QVBoxLayout, QHBoxLayout
 from .button_mappings import BUTTONS
-from .macro_bank import Action, Macro, decode_bank, replace_macro
-from .persistence import _mapping_version, apply_macro
+from .macro_bank import Action, Macro, decode_bank, replace_macro, validate_execution
+from .persistence import _mapping_version, apply_macro, remove_saved_macro
 from .transport import ConfigurationDevice
 
 DIRECTIONS = ('Center', 'Up', 'Up-right', 'Right', 'Down-right', 'Down', 'Down-left', 'Left', 'Up-left')
@@ -15,13 +15,18 @@ class MacroOperation(QThread):
     result = Signal(bool, str)
     values = Signal(object)
 
-    def __init__(self, path, snapshot=None, macro=None, parent=None):
+    def __init__(self, path, snapshot=None, macro=None, parent=None, remove_key=None):
         super().__init__(parent)
         self.path, self.snapshot, self.macro = path, snapshot, macro
+        self.remove_key = remove_key
 
     def run(self):
         try:
             with ConfigurationDevice(self.path) as device:
+                if self.remove_key is not None:
+                    folder = Path(os.environ.get('XDG_STATE_HOME', str(Path.home()/'.local/state'))) / 'flydigi-control'
+                    remove_saved_macro(device,self.snapshot['mapping'],self.snapshot['macros'],self.remove_key,
+                                       folder,expected_profile=self.snapshot['profile'])
                 if self.macro is not None:
                     folder = Path(os.environ.get('XDG_STATE_HOME', str(Path.home()/'.local/state'))) / 'flydigi-control'
                     apply_macro(device, self.snapshot['mapping'], self.snapshot['macros'], self.macro,
@@ -36,12 +41,34 @@ class MacroOperation(QThread):
                 if device.profile_state() != state:
                     raise RuntimeError('Profile changed during read; try again')
                 self.values.emit(dict(mapping=mapping, macros=macros, profile=state[0]))
-            self.result.emit(True, 'Macro saved and read back.' if self.macro else 'Macros read from the active profile.')
+            self.result.emit(True, 'Macro removed; button restored.' if self.remove_key is not None else
+                             'Macro saved and read back.' if self.macro else 'Macros read from the active profile.')
         except (OSError, ValueError, RuntimeError) as error:
             self.result.emit(False, str(error))
 
 
+class MacroRecording(QThread):
+    result=Signal(bool,str)
+    actions=Signal(object)
+    progress=Signal(object)
+
+    def __init__(self,path,max_actions,parent=None):
+        super().__init__(parent)
+        self.path,self.max_actions=path,max_actions
+
+    def run(self):
+        from .macro_record import record
+        try:
+            actions=record(self.path,15,self.max_actions,self.progress.emit)
+            if not actions:raise ValueError('No actions recorded; the draft is unchanged')
+            self.actions.emit(actions)
+            self.result.emit(True,'Recording added to the draft. Review it, then Save to apply.')
+        except (OSError,ValueError,RuntimeError) as error:
+            self.result.emit(False,str(error))
+
+
 class MacroPanel(QWidget):
+    delete_requested=Signal()
     def __init__(self):
         super().__init__()
         self.snapshot = None
@@ -49,6 +76,7 @@ class MacroPanel(QWidget):
         self.loading = False
         self.actions = []
         self.name = ''
+        self.delete_pending = False
         layout = QVBoxLayout(self)
         heading = QHBoxLayout()
         title = QLabel('Onboard macros'); title.setObjectName('title'); heading.addWidget(title)
@@ -62,7 +90,9 @@ class MacroPanel(QWidget):
         for value, label in ((0,'Disabled'), (1,'Run once'), (2,'Repeat while held'), (3,'Press to start / press to stop')):
             self.mode.addItem(label, value)
         self.mode.currentIndexChanged.connect(self.validate)
-        layout.addWidget(self.mode)
+        mode_row=QHBoxLayout();mode_row.addWidget(self.mode,2)
+        self.record=QPushButton('Record 15 seconds');self.rename=QPushButton('Rename')
+        mode_row.addWidget(self.record);mode_row.addWidget(self.rename);layout.addLayout(mode_row)
         interval_row = QHBoxLayout()
         self.interval_label = QLabel('Repeat delay · 100 ms'); interval_row.addWidget(self.interval_label)
         self.interval = QSlider(Qt.Orientation.Horizontal)
@@ -93,13 +123,16 @@ class MacroPanel(QWidget):
         self.earlier.clicked.connect(lambda:self.move_action(-1)); self.later.clicked.connect(lambda:self.move_action(1))
         row.addWidget(self.earlier); row.addWidget(self.later); layout.addLayout(row)
         self.summary = QLabel('Read the controller before editing.'); self.summary.setWordWrap(True); layout.addWidget(self.summary)
-        self.save = QPushButton('Save macro to the controller'); layout.addWidget(self.save)
+        save_row=QHBoxLayout();layout.addLayout(save_row)
+        self.save = QPushButton('Save macro to the controller');save_row.addWidget(self.save)
+        self.delete=QPushButton('Remove saved macro');save_row.addWidget(self.delete)
+        self.delete.clicked.connect(self.confirm_delete)
         self.result = QLabel(''); self.result.setWordWrap(True); layout.addWidget(self.result)
         note = QLabel('Actions run in order after their delay. Pair each press with a release; return sticks to Center.\n'
                       'This changes onboard behavior; Steam Input may bypass it. Reconnect persistence still needs testing.')
         note.setWordWrap(True); layout.addWidget(note); layout.addStretch()
         self.controls = [self.back,self.read,self.source,self.mode,self.interval,self.action,self.event,self.target,
-                         self.delay,self.add,self.update,self.remove,self.earlier,self.later,self.save]
+                         self.delay,self.add,self.update,self.remove,self.earlier,self.later,self.record,self.rename,self.delete,self.save]
         self.event_changed(); self.set_available(False)
 
     def event_changed(self, unused=None):
@@ -112,6 +145,7 @@ class MacroPanel(QWidget):
         self.load_macro()
 
     def load_macro(self, unused=None):
+        self.delete_pending=False;self.delete.setText('Remove saved macro')
         self.actions = []
         if self.snapshot is None:
             self.refresh_actions(); return
@@ -192,19 +226,47 @@ class MacroPanel(QWidget):
         if valid:
             try:
                 replace_macro(self.snapshot['macros'],self.macro())
+                validate_execution(self.macro())
                 self.summary.setText(f'Profile {self.snapshot["profile"]+1} · {self.name} · '
                                      f'{len(self.actions)} actions · {sum(a.delay_ms for a in self.actions)} ms per run')
             except ValueError as error:
                 valid = False; self.summary.setText(str(error))
         self.save.setEnabled(self.available and valid)
+        self.record.setEnabled(self.available and self.recording_capacity()>=2)
 
     def set_available(self, available):
         self.available = available; self.read.setEnabled(available)
         for control in self.controls[2:-1]: control.setEnabled(available and self.snapshot is not None)
         for control in (self.action,self.update,self.remove,self.earlier,self.later):
             control.setEnabled(available and self.snapshot is not None and bool(self.actions))
+        saved=self.snapshot is not None and any(r.macro.key==self.source.currentIndex()
+                 for r in decode_bank(self.snapshot['macros']).records)
+        self.delete.setEnabled(available and saved)
+        self.record.setEnabled(available and self.snapshot is not None and self.recording_capacity()>=2)
         self.validate()
+
+    def recording_capacity(self):
+        if self.snapshot is None or self.mode.currentData() is None or len(self.name.encode('utf-8'))>20:return 0
+        bank=decode_bank(self.snapshot['macros'])
+        if len(bank.records)>=10 and not any(r.macro.key==self.source.currentIndex() for r in bank.records):return 0
+        return 256-sum(len(r.macro.actions) for r in bank.records if r.macro.key!=self.source.currentIndex())
+
+    def set_recording(self, actions):
+        if self.snapshot is None:return
+        replace_macro(self.snapshot['macros'],self.macro(actions))
+        self.actions=list(actions);self.refresh_actions()
+
+    def confirm_delete(self):
+        if not self.available or self.snapshot is None:return
+        if not self.delete_pending:
+            self.delete_pending=True
+            self.delete.setText('Confirm removal')
+            self.result.setText('This removes the saved macro and restores this button’s default output. Press Confirm removal to apply.')
+        else:
+            self.delete_pending=False;self.delete.setText('Remove saved macro')
+            self.delete_requested.emit()
 
     def clear(self):
         self.snapshot = None; self.actions = []; self.action.clear()
+        self.delete_pending=False;self.delete.setText('Remove saved macro')
         self.summary.setText('Read the controller before editing.'); self.set_available(self.available)

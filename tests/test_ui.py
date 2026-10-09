@@ -412,6 +412,8 @@ class UITests(unittest.TestCase):
             panel.source.setCurrentIndex(source)
             panel.event.setCurrentIndex(panel.event.findData(1));panel.target.setCurrentIndex(4)
             panel.add.click()
+            self.assertFalse(panel.save.isEnabled())
+            panel.event.setCurrentIndex(panel.event.findData(0));panel.target.setCurrentIndex(4);panel.add.click()
             self.assertTrue(panel.save.isEnabled(),panel.name)
             replace_macro(empty_bank(),panel.macro())
 
@@ -436,6 +438,52 @@ class UITests(unittest.TestCase):
             context.return_value.__enter__.return_value=device
             reader.run()
         self.assertEqual(values,[snapshot])
+
+
+    def test_macro_recording_creates_draft_only_and_name_keyboard_works(self):
+        from test_macro_bank import empty_bank,sample
+        from test_profile_controls import profile
+        panel=self.window.macro_panel
+        panel.set_available(True);panel.load(dict(mapping=profile(),macros=empty_bank(),profile=0))
+        panel.set_recording(sample().actions)
+        self.assertTrue(panel.save.isEnabled());self.assertIsNone(self.window.worker)
+        self.window.rename_macro();self.assertEqual(self.window.pages.currentIndex(),13)
+        name=self.window.name_panel;name.clear_button.click()
+        name.keys[0].setFocus();self.press(Qt.Key.Key_Return)
+        name.case.click();name.keys[1].click();name.done.click()
+        self.assertEqual(panel.name,'aB');self.assertEqual(self.window.pages.currentIndex(),12)
+        name.set_value('猫'*6);name.append('a');name.append('b');name.append('c')
+        self.assertEqual(name.value,'猫'*6+'AB')
+        self.assertLessEqual(self.window.minimumSizeHint().height(),1080)
+
+    def test_macro_delete_requires_confirmation_and_clears_on_source_change(self):
+        from test_macro_bank import empty_bank,sample
+        from test_profile_controls import profile
+        from flydigi_control.macro_bank import replace_macro
+        panel=self.window.macro_panel;panel.set_available(True);panel.source.setCurrentIndex(18)
+        panel.load(dict(mapping=profile(),macros=replace_macro(empty_bank(),sample()),profile=0))
+        signals=[];panel.delete_requested.connect(lambda:signals.append(True))
+        panel.delete.click();self.assertEqual(signals,[])
+        panel.source.setCurrentIndex(19);self.assertFalse(panel.delete_pending)
+        self.assertFalse(panel.delete.isEnabled())
+        panel.source.setCurrentIndex(18);panel.delete.click();panel.delete.click()
+        self.assertEqual(signals,[True])
+
+
+    def test_macro_recording_disabled_when_all_bank_slots_used(self):
+        from test_macro_bank import empty_bank,sample
+        from test_profile_controls import profile
+        from flydigi_control.macro_bank import replace_macro
+        bank=empty_bank()
+        for key in range(10):bank=replace_macro(bank,sample(key))
+        panel=self.window.macro_panel;panel.set_available(True)
+        panel.load(dict(mapping=profile(),macros=bank,profile=0))
+        self.assertTrue(panel.record.isEnabled())
+        panel.source.setCurrentIndex(18)
+        self.assertFalse(panel.record.isEnabled())
+        self.assertEqual(panel.recording_capacity(),0)
+        panel.source.setCurrentIndex(0)
+        self.assertEqual(panel.recording_capacity(),256-18)
 
 
 

@@ -67,7 +67,8 @@ def apply_mapping_edit(device, previous_mapping, edit, backup_dir, *, expected_p
 
 
 def apply_macro(device, previous_mapping, previous_macros, macro, backup_dir, *, expected_profile):
-    from .macro_bank import replace_macro
+    from .macro_bank import replace_macro, validate_execution
+    validate_execution(macro)
     def unchanged(mapping):
         if mapping != previous_mapping:
             raise RuntimeError('Controller settings changed; read them again before applying')
@@ -80,6 +81,29 @@ def apply_macro(device, previous_mapping, previous_macros, macro, backup_dir, *,
     # the macro record. Do not invent a separate A4/A5 button-map write.
     return apply_configuration(device, backup_dir, mapping_update=unchanged,
                                macro_update=update, expected_profile=expected_profile)
+
+
+def remove_saved_macro(device, previous_mapping, previous_macros, key, backup_dir, *, expected_profile):
+    from .macro_bank import remove_macro, decode_bank
+    from .button_mappings import read_button
+    if not any(r.macro.key==key for r in decode_bank(previous_macros).records):
+        raise ValueError('No saved macro on this button')
+    def restore_button(mapping):
+        if mapping!=previous_mapping:
+            raise RuntimeError('Controller settings changed; read them again before applying')
+        if read_button(mapping,key).kind not in ('macro','button','rapid_fire'):
+            raise ValueError('Unknown or PC-specific button mapping; it was not changed')
+        result=bytearray(mapping)
+        result[13+3*key:16+3*key]=bytes([255,0,0])
+        return bytes(result)
+    def update(macros):
+        if macros!=previous_macros:
+            raise RuntimeError('Macros changed; read them again before applying')
+        return remove_macro(macros,key)
+    # Vendor UpdateConfig restores the button first, then removes its separate
+    # macro record. Saving occurs only after both banks pass full readback.
+    return apply_configuration(device,backup_dir,mapping_update=restore_button,
+                               macro_update=update,expected_profile=expected_profile)
 
 
 def apply_configuration(device, backup_dir, *, lighting_update=None, mapping_update=None, macro_update=None, expected_profile=None):
