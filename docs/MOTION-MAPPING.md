@@ -63,3 +63,17 @@ No motion settings have been written to hardware. Remaining physical checks:
   Xbox-compatible input paths.
 - Close the app and verify the saved values after controller off/on, receiver
   replug and PC restart.
+
+
+## Using Steam Input
+
+For keyboard/mouse mappings and gyro-as-mouse, use Steam Input's per-game layout.
+The controller's onboard gyro-to-stick settings are separate. With native Flydigi
+support enabled, Steam receives gyro and acceleration directly and integrates
+orientation itself; the configuration app does not need to stay open.
+
+The tested Steam session recognized gyro capability and returned live motion
+values. Physical turns/tilts and a gyro-to-mouse or gyro-to-stick game layout
+still need validation. Forwarding an ordinary Xbox virtual pad alone does not
+carry raw gyro; a local Steam Input mouse/stick mapping produces the mouse/stick
+output that Moonlight forwards instead.

@@ -6,15 +6,15 @@ parser test does not establish that the corresponding control works on hardware.
 
 | Area | Current state | Remaining work |
 | --- | --- | --- |
-| Buttons | All ten extras verified through Steam Input; candidate onboard editor supports 24 button mappings and rapid fire | Hardware mapping/output/persistence checks; keyboard/mouse and multifunction mapping editors |
+| Buttons | All ten extras verified through Steam Input; candidate onboard editor supports 24 button mappings and rapid fire | Hardware mapping/output checks; keyboard/mouse and multifunction mappings use Steam Input |
 | Lighting | Colors verified, effect uploads read back; candidate Default preset matches vendor data for all four profiles | Flow/brightness/off visual checks; onboard persistence power-cycle test |
-| Persistence | Guarded candidate saves the active profile after backing it up and checking mappings | Verify off/on, receiver replug and reboot with the app closed; check feature switches individually |
+| Persistence | Guarded candidate saves the active profile after backing it up and checking mappings | Off/on comparison passed once; receiver replug/reboot and feature switches remain |
 | Grip motors | Separate SDL left/right values; Identify physically confirmed; app candidate has per-motor tests and saved enable/strength controls | Physical validation of tests and saved settings |
 | Trigger motors | SDL candidate preserves all four levels; app candidate tests each motor and all four together | Physical tests, then streaming-path verification |
-| Stick output | Candidate edits circle/rectangle and Default/Quick/Slow/Custom response, with center/edge controls and stored/proposed curve comparison | Hardware save test; negative compensation encoding; keyboard/mouse mapping editors |
+| Stick output | Candidate edits circle/rectangle and Default/Quick/Slow/Custom response, with center/edge controls and stored/proposed curve comparison | Hardware save test; negative compensation encoding; keyboard/mouse mappings use Steam Input |
 | Stick diagnostics | Candidate shows native XY, triggers, gyro, acceleration, native report rate and 32-sector circularity error, alongside an explicitly selected OS gamepad | Physical original/mapped comparison and USB polling-rate test |
 | Triggers | Candidate edits travel range and per-side vibration amplitude, threshold and strength; one shared enable flag | Hardware response/save tests; native Steam Input interaction |
-| Motion | Raw gyro/acceleration diagnostics; candidate gyro-to-stick editor with activation, sensitivity and deadzone compensation | Hardware effect and persistence, two-button behavior, mouse path and streaming verification; hidden vendor smoothing fields are preserved |
+| Motion | Raw gyro/acceleration diagnostics; candidate gyro-to-stick editor with activation, sensitivity and deadzone compensation | Steam receives motion; physical axes, mapped output and streaming verification remain; mouse mapping uses Steam Input |
 | Profiles | Candidate selects four PC profiles, backs up/restores app snapshots and restores active-profile defaults with readback; Fn shortcut control exists | Physical switching/restore/persistence tests; vendor whole-profile conversion |
 | Macros/Turbo | Turbo and rapid-fire controls; separate-bank backup/readback; candidate couch editor, passive recording, on-screen naming, PC library, Space Station macro import/export and guarded save/removal; codec matches vendor serializer | Physical activation/save tests; Space Station library registration/online sharing, international naming and firmware shortcut behavior validation |
 | Global settings | Candidate edits firmware filtering, automatic calibration, rebound suppression, precision, center sensitivity and sleep, with capability checks | Hardware behavior and persistence; the official report-rate selector is Vader 4-only |

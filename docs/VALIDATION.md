@@ -502,3 +502,21 @@ Two full profile snapshots decreased from 7.135 to 5.174 seconds on the same
 controller. All saved settings still matched; a power cycle was not established
 by this comparison. All 232 tests pass on the K17, including failed primers,
 intervening commands, incomplete writes and repeated-save non-replay checks.
+
+
+### Controller restart and Steam motion
+
+2026-10-09: The user turned the Vader back on and observed its saved breathing
+red lighting. Steam logged a disconnect at 10:35:40 and reconnect at 10:36:22.
+A complete two-read comparison against the explicit-save snapshot returned no
+differences: mapping, LEDs, macros, versions, global settings and native mapping
+permission all matched. This verifies retention for this off/on cycle; receiver
+replug and PC reboot are separate remaining checks.
+
+Steam advertised gyro capability and its own input-state flow returned raw and
+filtered gyro speed, acceleration and orientation. Its sensor delta time was
+2000 microseconds. A simultaneous passive native capture collected 21,343 input
+reports over 45 seconds. This verifies the path into Steam, but the mostly
+stationary capture does not validate axis directions or a gameplay mapping.
+The user selected Steam Input for keyboard/mouse and gyro-as-mouse processing;
+a separate Linux keyboard/mouse injector is not planned.
