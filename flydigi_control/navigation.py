@@ -25,6 +25,9 @@ class GamepadNavigation:
         for name, (args, result) in definitions.items():
             function = getattr(self.lib, name)
             function.argtypes, function.restype = args, result
+        # Qt owns process/window lifecycle; do not turn SIGTERM into a discarded
+        # SDL event when pumping the joystick subsystem.
+        self.lib.SDL_SetHint(b'SDL_NO_SIGNAL_HANDLERS', b'1')
         self.lib.SDL_SetHint(b'SDL_JOYSTICK_HIDAPI', b'0')
         if not self.lib.SDL_Init(0x200):
             raise RuntimeError('SDL joystick initialization failed')

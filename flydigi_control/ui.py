@@ -265,8 +265,10 @@ class Window(QWidget):
             control.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
         try:
             self.navigation = GamepadNavigation()
-        except (OSError, RuntimeError, AttributeError):
+        except (OSError, RuntimeError, AttributeError) as error:
             self.navigation = None
+            print(f"Flydigi navigation initialization failed: {error}", file=sys.stderr, flush=True)
+        self._navigation_state = None
         self.timer = QTimer(self)
         self.timer.timeout.connect(self.poll_navigation)
         self.timer.start(16)
@@ -459,10 +461,16 @@ class Window(QWidget):
         self.test_start.setFocus()
 
     def poll_navigation(self):
-        if self.navigation is None or not self.isActiveWindow():
+        if self.navigation is None:
             return
+        # Keep processing hotplug while the Steam overlay owns focus. Only
+        # dispatch navigation actions when our own window is active.
         actions = self.navigation.poll()
-        if self.testing:
+        state = (self.isActiveWindow(), tuple(self.navigation.devices), self.testing)
+        if state != self._navigation_state:
+            print(f"Flydigi navigation active/devices/testing: {state}", file=sys.stderr, flush=True)
+            self._navigation_state = state
+        if not self.isActiveWindow() or self.testing:
             return
         for action in actions:
             key = {'up': Qt.Key.Key_Up, 'down': Qt.Key.Key_Down,

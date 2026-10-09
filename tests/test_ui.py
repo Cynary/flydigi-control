@@ -36,6 +36,15 @@ class UITests(unittest.TestCase):
     def press(self, key):
         self.window.keyPressEvent(QKeyEvent(QKeyEvent.Type.KeyPress, key, Qt.KeyboardModifier.NoModifier))
 
+    def test_hotplug_processing_continues_without_dispatch_when_unfocused(self):
+        self.window.navigation.devices = {}
+        self.window.navigation.poll.return_value = ['accept']
+        with patch.object(self.window, 'isActiveWindow', return_value=False), \
+             patch.object(self.window, 'keyPressEvent') as dispatch:
+            self.window.poll_navigation()
+            self.window.navigation.poll.assert_called_once()
+            dispatch.assert_not_called()
+
     def test_no_device_disables_writes(self):
         for button in (self.window.apply, self.window.off, self.window.turbo, self.window.hotkeys, self.window.native):
             self.assertFalse(button.isEnabled())

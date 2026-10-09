@@ -209,3 +209,20 @@ fallback. The button test now reports this after three seconds instead of waitin
 silently for a minute. It does not claim the interface or change input settings.
 The app suite passes all 30 tests on K17, including Qt UI tests. Physical hotplug
 validation is pending alongside the SDL startup recovery candidate.
+
+### Follow-up reconnect investigation (October 8)
+
+Ordinary navigation recovered through Steam's Xbox-compatible fallback, but
+configuration queries stopped receiving replies. USB captures confirm that the
+queries were transmitted. Pausing Steam's discovery queries, restarting the
+controller and resetting the USB connection did not restore settings replies.
+A full receiver power-cycle is still needed for comparison; do not call this
+reconnect case resolved.
+
+The app now processes SDL device discovery while unfocused, but dispatches
+navigation only while its own window is active. Initialization errors and device
+transitions are logged. SDL's signal handlers are disabled because Qt owns the
+app lifecycle; previously SDL swallowed SIGTERM into an event the app discarded.
+All 31 Python/Qt tests pass on the K17. The local test launcher uses
+`python3 -m flydigi_control`: setting PYTHONPATH on the image entry point alone
+was ineffective because that entry point prepended the packaged source directory.
