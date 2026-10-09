@@ -47,7 +47,7 @@ def discover(sysfs: Path = Path('/sys')) -> list[dict]:
 
 
 class ConfigurationDevice:
-    """Only lighting and identity commands are allowed on this connection.
+    """Lighting, identity, Turbo and Fn profile-hotkey configuration.
 
     hidraw broadcasts reports to each opener. Reading this fd doesn't consume
     Steam's reports. No test-mode, acquire, reset, profile-switch or flash command
@@ -60,6 +60,7 @@ class ConfigurationDevice:
     def __init__(self, path: str):
         self.path = path
         self.fd = None
+        self.last_reply_checksum_matches = None
 
     def __enter__(self):
         if self.path not in {d['path'] for d in discover()}:
@@ -105,8 +106,13 @@ class ConfigurationDevice:
         while (remaining := deadline - time.monotonic()) > 0:
             select.select([self.fd], [], [], remaining)
             for reply in self._read():
-                if (len(reply) == 32 and reply[:3] == packet[:3]
-                        and reply[31] == sum(reply[2:31]) & 0xff):
+                if len(reply) == 32 and reply[:3] == packet[:3]:
+                    # The public 7.1.4.0 wireless capture does not satisfy the
+                    # wired checksum convention. Record this as a diagnostic,
+                    # not a reason to discard a correctly framed reply. USB
+                    # transport has its own CRC; the trailer's meaning on all
+                    # receiver firmware versions still needs investigation.
+                    self.last_reply_checksum_matches = reply[31] == (sum(reply[2:31]) & 0xff)
                     return reply
         raise TimeoutError('No reply from controller; is it turned on?')
 
@@ -121,7 +127,9 @@ class ConfigurationDevice:
         if any(type(v) is not int or not 0 <= v <= 255 for v in (red, green, blue)):
             raise ValueError('RGB channels must be integers from 0 to 255')
         self.info()
-        self.exchange(protocol.led_test_color(red, green, blue))
+        # Instant color has no acknowledgement handler in the vendor SDK.
+        # A successful write confirms delivery to USB, not the visible result.
+        self.send(protocol.led_test_color(red, green, blue))
 
     def features(self):
         reply = self.exchange(protocol.request(0x03))

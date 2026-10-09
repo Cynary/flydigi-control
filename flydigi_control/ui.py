@@ -20,7 +20,7 @@ class ApplyColor(QThread):
         try:
             with ConfigurationDevice(self.path) as device:
                 device.set_color(*self.color)
-            self.result.emit(True, 'Color applied. These lights reset when the controller powers off.')
+            self.result.emit(True, 'Color command sent. Check the lights; this is a temporary change.')
         except (OSError, ValueError, RuntimeError) as error:
             self.result.emit(False, str(error))
 

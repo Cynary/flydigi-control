@@ -27,6 +27,16 @@ class ProtocolTests(unittest.TestCase):
         self.assertEqual(output[:9], bytes.fromhex('00 5a a5 f5 05 12 34 56 96'))
         self.assertEqual(len(output), 33)
 
+    def test_color_write_does_not_require_an_ack(self):
+        device = ConfigurationDevice('unused')
+        with patch.object(device, 'info') as info, \
+             patch.object(device, 'send') as send, \
+             patch.object(device, 'exchange') as exchange:
+            device.set_color(12, 34, 56)
+            info.assert_called_once()
+            send.assert_called_once_with(protocol.led_test_color(12, 34, 56))
+            exchange.assert_not_called()
+
     def test_input_mode_and_firmware_commands_are_rejected(self):
         device = ConfigurationDevice('/dev/hidraw-test')
         with patch('os.write') as write:
@@ -52,15 +62,27 @@ class ProtocolTests(unittest.TestCase):
         device = ConfigurationDevice('unused')
         device.fd = 4
         ack = bytearray(32)
-        ack[:5] = b'\x5a\xa5\xf5\x01\x00'
+        ack[:5] = b'\x5a\xa5\x01\x01\x00'
         ack[31] = sum(ack[2:31]) & 255
-        corrupt = bytearray(ack)
-        corrupt[31] ^= 1
         with patch.object(device, 'send'), patch.object(device, '_read', side_effect=[
-            [], [b'\x5a\xa5\xef\x00\x00', bytes(corrupt)], [bytes(ack)]
+            [], [b'\x5a\xa5\xef\x00\x00', b'\x5a\xa5\x01\x01\x00'], [bytes(ack)]
         ]), patch('select.select'):
-            self.assertEqual(device.exchange(protocol.led_test_color(1, 2, 3)),
+            self.assertEqual(device.exchange(protocol.info_request()),
                              bytes(ack))
+            self.assertTrue(device.last_reply_checksum_matches)
+
+    def test_recorded_wireless_identity_has_a_different_trailer(self):
+        # Public Tux InVader fixture, firmware-7.1.4.0-wireless.json,
+        # GPL-3.0; source and commit recorded in THIRD_PARTY.md.
+        reply = bytes.fromhex('5aa50101008202000000000445010071400467351500000000000010261f0020')
+        device = ConfigurationDevice('unused')
+        device.fd = 4
+        with patch.object(device, 'send'), patch.object(device, '_read', side_effect=[[], [reply]]), \
+             patch('select.select'):
+            info = device.info()
+        self.assertEqual(info.device_id, 130)
+        self.assertEqual(info.firmware, '7.1.4.0')
+        self.assertFalse(device.last_reply_checksum_matches)
 
     def test_feature_write_requires_capability_and_readback(self):
         device = ConfigurationDevice('unused')

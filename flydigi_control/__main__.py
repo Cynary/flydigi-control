@@ -43,7 +43,7 @@ def main():
                 if color is None:
                     parser.error('Color must be six hexadecimal digits')
                 device.set_color(*color)
-                print('Color command acknowledged. It resets when the controller powers off.')
+                print('Color command sent. Check the lights; this is a temporary change.')
         return
     from .ui import run
     run(args.screenshot)

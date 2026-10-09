@@ -8,7 +8,7 @@ sees the physical controls.
 | Requirement | Evidence so far | Still needed |
 | --- | --- | --- |
 | M1–M4, C/Z, LM/RM, Fn, Turbo | Protocol locations match existing implementations; independent-bit parser tests pass | Capture presses from the actual controller, verify firmware and Steam Input mappings, decide Turbo behavior in enhanced mode |
-| LEDs | Color command framing and input validation tested | Actual color/brightness/off; acknowledgements; reconnect persistence |
+| LEDs | Color command framing and input validation tested | Actual color/brightness/off and reconnect persistence |
 | Steam Input | SDL supports native Flydigi and contains May 2026 transport fix | Detect controller once, verify all mappings, reconnect and rumble |
 | Couch app | Runs on K17; offscreen rendering and navigation tests pass | Physical controller-only use, Steam shortcut, test alongside native Flydigi ownership |
 | Wake | Probe decodes USB remote-wake flag and ancestor wake settings | Receiver connected, descriptors and power policy, controller-triggered suspend/resume with timed fallback |
@@ -22,11 +22,22 @@ connect the receiver and turn the controller on. No driver or wake configuration
 was changed. Steam's bundled 64-bit SDL identifies as
 `SDL-release-3.4.0-1359-g70e9cc86d` (version API 3005000).
 
-Twelve automated tests passed on the K17: independent button-bit decoding,
+Fifteen automated tests passed on the K17: independent button-bit decoding,
 USB identity filtering and wake capability extraction, zero report-ID framing,
 invalid command rejection, incomplete writes, acknowledgement filtering,
 feature capability/read-back behavior, and UI navigation/disconnected state.
 The configuration window was rendered offscreen; no game or stream was started.
+
+The recorded firmware 7.1.4.0 wireless identity reply does not use the wired
+additive-checksum convention. Reply matching now checks framing and command;
+the trailer comparison is diagnostic only. A regression test uses the public
+wireless capture. This does not establish support for every firmware version.
+
+The vendor SDK has no acknowledgement handler for the instant-color command
+(`0xF5`), and Tux InVader sends it without waiting for a reply. The app now does
+the same after verifying controller identity. It reports “command sent,” not
+“applied”; the LED result still needs a physical check. A regression test verifies
+that the command does not wait for an acknowledgement.
 
 ## Hardware procedure
 
@@ -38,8 +49,8 @@ The configuration window was rendered offscreen; no game or stream was started.
    SDL events and Steam Input's input test. Verify releases and simultaneous
    presses; do not infer success from device enumeration.
 4. Test LED commands and hardware feature read-back. Keep a backup of settings;
-   do not issue reset or firmware commands. Check whether instant-color replies
-   exist on this firmware before choosing a no-ack transport path.
+   do not issue reset or firmware commands. Instant color is sent without waiting for an acknowledgement; verify the
+   visible result because a successful USB write cannot prove it.
 5. Test app navigation and rumble while Steam owns the controller. Reconnect the
    controller and receiver; verify that only one controller is exposed.
 6. Inspect receiver and ancestor wake support. Enable wake only where applicable;
