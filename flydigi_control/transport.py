@@ -47,14 +47,14 @@ def discover(sysfs: Path = Path('/sys')) -> list[dict]:
 
 
 class ConfigurationDevice:
-    """Lighting, identity, Turbo and Fn profile-hotkey configuration.
+    """Lighting, profiles, global settings and identity access.
 
     hidraw broadcasts reports to each opener. Reading this fd doesn't consume
     Steam's reports. No test-mode, acquire, reset or profile-switch command is
     sent. Onboard saving is reserved for the guarded persistence transaction.
     The advisory lock serializes our own configuration clients.
     """
-    ALLOWED = {protocol.CMD_INFO, protocol.CMD_RUMBLE, 0x03, 0x10, 0x11, 0x13, protocol.CMD_PROFILE_VERSIONS,
+    ALLOWED = {protocol.CMD_INFO, protocol.CMD_RUMBLE, 0x03, 0x10, 0x11, 0x13, 0x15, 0x16, 0x17, protocol.CMD_PROFILE_VERSIONS,
                protocol.CMD_MAPPING_READ, protocol.CMD_PROFILE_SAVE,
                protocol.CMD_MAPPING_WRITE_START, protocol.CMD_MAPPING_WRITE_PACK,
                protocol.CMD_LED_READ, protocol.CMD_LED_WRITE_START,
@@ -95,8 +95,10 @@ class ConfigurationDevice:
     def send(self, packet: bytes):
         if len(packet) != 32 or packet[:2] != protocol.MAGIC or packet[2] not in self.ALLOWED:
             raise ValueError('Unsupported configuration command')
-        if packet[2] == 0x13 and (packet[3] != 4 or packet[4] not in (1, 4) or packet[5] not in (0, 1)):
-            raise ValueError('Only Turbo and Fn profile hotkeys are supported')
+        if packet[2] in (0x13, 0x15, 0x16, 0x17):
+            from .hardware_settings import valid_packet
+            if not valid_packet(packet):
+                raise ValueError('Invalid hardware-settings packet')
         if packet[2] == 0x11 and (packet[3:8] != bytes([7, 255, 255, 255, 255]) or packet[8] not in (0, 1)):
             raise ValueError('Only third-party mapping permission may be changed')
         if packet[2] == protocol.CMD_PROFILE_SAVE and packet != protocol.profile_save_request(int.from_bytes(packet[4:6], 'little')):

@@ -140,7 +140,7 @@ class ProtocolTests(unittest.TestCase):
     def test_other_feature_writes_rejected(self):
         with patch('os.write') as write:
             with self.assertRaises(ValueError):
-                ConfigurationDevice('unused').send(protocol.request(0x13, 7, 1))
+                ConfigurationDevice('unused').send(protocol.request(0x13, 8, 1))
             write.assert_not_called()
 
 

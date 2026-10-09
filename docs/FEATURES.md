@@ -17,11 +17,15 @@ parser test does not establish that the corresponding control works on hardware.
 | Motion | Gyro and acceleration decoded | Official motion mappings/sensitivity/smoothing options; visible sensor tests and streaming verification |
 | Profiles | Active profile can be read; Fn shortcut control exists | Profile management, backups/import/export and safe save/restore |
 | Macros/Turbo | Extra Turbo button exposed; firmware shortcuts documented | Compare macro editor and firmware feature semantics with the official app |
-| Calibration/device tools | Not implemented | Inventory calibration, firmware/receiver and other Vader tools before claiming parity |
+| Global settings | Candidate edits firmware filtering, automatic calibration, rebound suppression, precision, center sensitivity and sleep, with capability checks | Hardware behavior and persistence; report-rate writes need protocol clarification |
+| Calibration/device tools | Automatic-calibration switch implemented; manual procedure not implemented | Inventory manual calibration, firmware/receiver and other Vader tools before claiming parity |
 | Wake | Receiver does not advertise USB remote wake | No supported method identified; do not claim controller wake works |
 
 The [trigger and saved-vibration notes](TRIGGERS-AND-VIBRATION.md) describe their
 units, shared enable flags and how untouched profile bytes are preserved.
+
+The [global settings notes](HARDWARE-SETTINGS.md) document the controller-wide
+options and why report-rate changes remain read-only.
 
 ## Circle and rectangle
 

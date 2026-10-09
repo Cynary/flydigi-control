@@ -128,6 +128,50 @@ class UITests(unittest.TestCase):
         self.assertLess(last.mapTo(panel,last.rect().bottomLeft()).y(),panel.details.y())
         self.assertLessEqual(self.window.minimumSizeHint().height(),1080)
 
+    def test_hardware_settings_are_read_first_and_controller_navigable(self):
+        from test_hardware_settings import status
+        panel=self.window.hardware_panel
+        self.window.pages.setCurrentIndex(9)
+        panel.set_available(True)
+        self.assertFalse(panel.apply.isEnabled())
+        panel.load(status())
+        self.assertFalse(panel.apply.isEnabled())
+        panel.choice.setFocus()
+        self.press(Qt.Key.Key_Right)
+        self.assertIs(panel.choice.currentData(),True)
+        self.assertTrue(panel.apply.isEnabled())
+        self.assertIsNone(self.window.worker)
+        for _ in range(3): self.app.processEvents()
+        self.assertLessEqual(self.window.minimumSizeHint().height(),1080)
+        panel.back.setFocus()
+        self.press(Qt.Key.Key_Return)
+        self.assertEqual(self.window.pages.currentIndex(),1)
+
+    def test_hardware_settings_unknown_and_unsupported_values_are_not_clamped(self):
+        from test_hardware_settings import status
+        panel=self.window.hardware_panel
+        panel.set_available(True)
+        value=bytearray(status());value[11]=7
+        panel.load(bytes(value))
+        panel.setting.setCurrentIndex(panel.setting.findData('precision'))
+        self.assertFalse(panel.choice.isEnabled())
+        self.assertFalse(panel.apply.isEnabled())
+        self.assertIn('Unrecognized',panel.current.text())
+        value[5]=0;panel.load(bytes(value))
+        panel.setting.setCurrentIndex(panel.setting.findData('rebound'))
+        self.assertIn('Not advertised',panel.current.text())
+        panel.clear()
+        self.assertIsNone(panel.snapshot)
+        self.assertFalse(panel.apply.isEnabled())
+
+    def test_failed_hardware_write_invalidates_snapshot(self):
+        from test_hardware_settings import status
+        panel=self.window.hardware_panel
+        panel.load(status())
+        self.window.hardware_result(False,'Uncertain write')
+        self.assertIsNone(panel.snapshot)
+        self.assertEqual(panel.result.text(),'Uncertain write')
+
     def test_motor_stop_remains_available_while_settings_are_locked(self):
         from flydigi_control.motor_ui import MotorTest
         self.window.devices = [dict(path='/dev/test', remote_wake_advertised=False)]

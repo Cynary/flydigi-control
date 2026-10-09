@@ -19,6 +19,7 @@ from .analog_ui import AnalogPanel, AnalogTest
 from .motor_ui import MotorPanel, MotorTest
 from .curve_ui import CurvePanel
 from .profile_ui import ProfilePanel, ProfileOperation
+from .hardware_ui import HardwarePanel, HardwareOperation
 
 
 class StickOperation(QThread):
@@ -283,6 +284,8 @@ class Window(QWidget):
         profile_buttons.addWidget(self.trigger_settings)
         profile_buttons.addWidget(self.grip_settings)
         settings.addLayout(profile_buttons)
+        self.hardware_settings = QPushButton('Global controller settings')
+        settings.addWidget(self.hardware_settings)
         self.settings_result = self.label(settings, 'Read the controller before changing a setting.', 'muted')
         self.settings_result.setWordWrap(True)
         settings.addStretch()
@@ -357,6 +360,12 @@ class Window(QWidget):
             self.pages.addWidget(panel)
         self.trigger_settings.clicked.connect(lambda: self.pages.setCurrentIndex(7))
         self.grip_settings.clicked.connect(lambda: self.pages.setCurrentIndex(8))
+        self.hardware_panel = HardwarePanel()
+        self.hardware_panel.back.clicked.connect(lambda: self.pages.setCurrentIndex(1))
+        self.hardware_panel.read.clicked.connect(lambda: self.hardware_operation())
+        self.hardware_panel.apply.clicked.connect(lambda: self.hardware_operation(apply=True))
+        self.pages.addWidget(self.hardware_panel)
+        self.hardware_settings.clicked.connect(lambda: self.pages.setCurrentIndex(9))
         self.label(root_layout, 'D-pad / stick: navigate    A: select    B: return to Steam', 'eyebrow')
         self.controls = [self.device_box, self.lighting_tab, self.settings_tab, self.test_tab,
                          self.effect, self.color_slot, self.add_color, self.remove_color,
@@ -365,7 +374,8 @@ class Window(QWidget):
                          self.sticks_tab, self.stick_read, self.stick_side, self.stick_shape, self.stick_apply,
                          self.analog_tab, self.analog_start, self.motor_tab, *self.motor_panel.controls,
                          self.stick_response, *self.curve_panel.controls,
-                         self.trigger_settings,self.grip_settings,*self.trigger_panel.controls,*self.grip_panel.controls]
+                         self.trigger_settings,self.grip_settings,*self.trigger_panel.controls,*self.grip_panel.controls,
+                         self.hardware_settings,*self.hardware_panel.controls]
         for control in self.controls:
             control.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
         try:
@@ -464,7 +474,7 @@ class Window(QWidget):
             self.device_box.blockSignals(False)
             self.feature_values = {}
             self.stick_values = None
-            for panel in (self.trigger_panel,self.grip_panel):panel.clear()
+            for panel in (self.trigger_panel,self.grip_panel,self.hardware_panel):panel.clear()
         self.show_device()
 
     def show_device(self):
@@ -475,6 +485,7 @@ class Window(QWidget):
         self.curve_panel.set_available(bool(self.devices) and not busy and self.stick_values is not None)
         for panel in (self.trigger_panel,self.grip_panel):
             panel.set_available(bool(self.devices) and not busy)
+        self.hardware_panel.set_available(bool(self.devices) and not busy)
         self.test_start.setEnabled(bool(self.devices) and not busy)
         self.analog_start.setEnabled(bool(self.devices) and not busy)
         self.apply.setEnabled(bool(self.devices) and not busy)
@@ -503,7 +514,7 @@ class Window(QWidget):
     def device_changed(self):
         self.feature_values = {}
         self.stick_values = None
-        for panel in (self.trigger_panel,self.grip_panel):panel.clear()
+        for panel in (self.trigger_panel,self.grip_panel,self.hardware_panel):panel.clear()
         self.show_device()
 
     def apply_color(self, checked=False, off=False):
@@ -531,7 +542,7 @@ class Window(QWidget):
             self.motor_panel.all.setFocus()
         elif self.pages.currentIndex() == 6:
             self.curve_panel.back.setFocus()
-        elif self.pages.currentIndex() in (7,8):
+        elif self.pages.currentIndex() in (7,8,9):
             self.pages.currentWidget().read.setFocus()
         else:
             self.read_settings.setFocus()
@@ -549,6 +560,29 @@ class Window(QWidget):
 
     def set_feature_values(self, values):
         self.feature_values = values
+
+    def hardware_operation(self, apply=False):
+        panel = self.hardware_panel
+        if self.worker is not None or not self.devices or (apply and not panel.apply.isEnabled()):
+            return
+        self.worker = HardwareOperation(self.device_box.currentData(), self,
+                                        previous=panel.snapshot if apply else None,
+                                        name=panel.setting.currentData() if apply else None,
+                                        value=panel.choice.currentData() if apply else None)
+        self.worker.values.connect(panel.load)
+        # Invalidate old snapshots even on a failed/uncertain write. A later
+        # read must establish the current state before another change.
+        self.worker.result.connect(lambda ok, text: self.hardware_result(ok, text))
+        self.worker.finished.connect(self.applied)
+        panel.result.setText('Backing up and verifying change…' if apply else 'Reading global settings…')
+        self.show_device()
+        self.worker.start()
+
+    def hardware_result(self, ok, text):
+        if not ok:
+            self.hardware_panel.clear()
+        self.hardware_panel.result.setText(text)
+        self.feature_values = {}  # old Turbo/Fn state must be reread too
 
     def profile_operation(self,panel,save=False):
         if self.worker is not None or not self.devices or (save and panel.mapping is None):

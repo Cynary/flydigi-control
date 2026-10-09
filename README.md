@@ -23,7 +23,9 @@ independent motor control and diagnostic tests.
 
 The development branch adds a stick-shape editor, a live stick/trigger/motion
 test and separate grip/trigger motor tests. These are candidates awaiting hardware
-validation; they are not yet included in the published image.
+validation; they are not yet included in the published image. It also adds
+[global controller settings](docs/HARDWARE-SETTINGS.md) for filtering, automatic
+calibration, precision, center sensitivity and sleep.
 
 ## Run
 
@@ -46,6 +48,7 @@ Command-line checks:
 ```sh
 python3 -m flydigi_control --probe       # USB identity and wake capability; no commands sent
 python3 -m flydigi_control --info        # controller identity and firmware
+python3 -m flydigi_control --hardware-settings  # global settings; read only
 python3 -m flydigi_control --features    # current Turbo and Fn profile shortcut settings
 python3 -m flydigi_control --monitor 60  # passive button capture while Steam owns native input
 python3 -m flydigi_control --color '#0080ff'
