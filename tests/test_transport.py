@@ -128,6 +128,36 @@ class ProtocolTests(unittest.TestCase):
                 device.exchange(protocol.request(0x13, 4, 1))
             self.assertEqual(once.call_count, 1)
 
+    def test_known_repeated_queries_are_primed_before_waiting(self):
+        for wanted in (protocol.info_request(),protocol.request(3),protocol.request(0x10),
+                       protocol.profile_versions_request()):
+            device=ConfigurationDevice('unused')
+            with patch('os.write',return_value=33):device.send(wanted)
+            primer=protocol.info_request() if wanted[2]==3 else protocol.request(3)
+            for response in (b'primer',TimeoutError()):
+                with patch.object(device,'_exchange_once',side_effect=[response,b'fresh']) as once:
+                    self.assertEqual(device.exchange(wanted),b'fresh')
+                    self.assertEqual([c.args[0] for c in once.call_args_list],[primer,wanted])
+
+    def test_intervening_command_clears_repeat_and_writes_are_never_primed(self):
+        device=ConfigurationDevice('unused');wanted=protocol.profile_versions_request()
+        with patch('os.write',return_value=33):
+            device.send(wanted);device.send(protocol.info_request())
+        with patch.object(device,'_exchange_once',return_value=b'fresh') as once:
+            self.assertEqual(device.exchange(wanted),b'fresh')
+            self.assertEqual(once.call_count,1)
+        write=protocol.profile_save_request(123)
+        with patch('os.write',return_value=33):device.send(write)
+        with patch.object(device,'_exchange_once',side_effect=TimeoutError()) as once:
+            with self.assertRaises(TimeoutError):device.exchange(write)
+            self.assertEqual(once.call_count,1)
+
+    def test_failed_send_does_not_update_last_command(self):
+        device=ConfigurationDevice('unused')
+        with patch('os.write',return_value=2):
+            with self.assertRaises(OSError):device.send(protocol.info_request())
+        self.assertIsNone(device._last_sent)
+
     def test_missing_mapping_ack_requires_successful_readback(self):
         device = ConfigurationDevice('unused')
         with patch.object(device, 'info'), patch.object(device, 'exchange', side_effect=TimeoutError()), \

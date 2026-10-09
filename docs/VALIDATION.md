@@ -487,3 +487,18 @@ The trace also shows repeated identical A1 queries being suppressed; the existin
 read-only primer recovers them after its 500 ms timeout. Individual configuration
 packets arrive roughly every 16 ms, so the repeated full backups/readbacks take
 seconds. This is configuration traffic, not controller-input latency.
+
+
+### Configuration-read latency
+
+2026-10-09: The transport now remembers its last successfully sent command. For
+consecutive identical read-only queries it sends the already validated alternate
+query first, rather than waiting for the firmware to suppress the duplicate.
+This applies only to identity, status, ownership and profile-version reads; it
+does not retry writes or replace fresh state with cached replies. Unknown state
+across opens retains the timeout recovery path.
+
+Two full profile snapshots decreased from 7.135 to 5.174 seconds on the same
+controller. All saved settings still matched; a power cycle was not established
+by this comparison. All 232 tests pass on the K17, including failed primers,
+intervening commands, incomplete writes and repeated-save non-replay checks.

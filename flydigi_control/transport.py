@@ -66,11 +66,13 @@ class ConfigurationDevice:
         self.path = path
         self.fd = None
         self.last_reply_checksum_matches = None
+        self._last_sent = None
 
     def __enter__(self):
         if self.path not in {d['path'] for d in discover()}:
             raise ValueError('Select a connected Vader 5 Pro configuration interface.')
         self.fd = os.open(self.path, os.O_RDWR | os.O_NONBLOCK | os.O_CLOEXEC)
+        self._last_sent = None  # Another process may have used it between opens.
         try:
             fcntl.flock(self.fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
         except OSError:
@@ -125,18 +127,28 @@ class ConfigurationDevice:
         output = b'\x00' + packet
         if os.write(self.fd, output) != len(output):
             raise OSError('Incomplete HID write')
+        self._last_sent = packet
 
     def exchange(self, packet: bytes, timeout: float = 0.5) -> bytes:
+        read_only = packet in (protocol.info_request(), protocol.request(0x03),
+                               protocol.request(0x10), protocol.profile_versions_request())
+        primer = protocol.request(0x03 if packet[2] != 0x03 else 0x01) if read_only else None
+        if read_only and self._last_sent == packet:
+            # Captured firmware suppresses consecutive identical queries. If
+            # we know we just sent this one, avoid waiting for that suppression.
+            # This is another read, not cached state or a replay of a write.
+            try:
+                self._exchange_once(primer, timeout)
+            except TimeoutError:
+                pass
         try:
             return self._exchange_once(packet, timeout)
         except TimeoutError:
             # Vader 5 Pro 7.1.5.0 suppresses consecutive identical queries,
             # including across fd opens. Waiting 600 ms did not clear it;
             # alternating read-only queries did. Never replay a setting write.
-            if packet not in (protocol.info_request(), protocol.request(0x03),
-                              protocol.request(0x10), protocol.profile_versions_request()):
+            if not read_only:
                 raise
-            primer = protocol.request(0x03 if packet[2] != 0x03 else 0x01)
             try:
                 self._exchange_once(primer, timeout)
             except TimeoutError:
