@@ -7,7 +7,7 @@ sees the physical controls.
 
 | Requirement | Evidence so far | Still needed |
 | --- | --- | --- |
-| M1–M4, C/Z, LM/RM, Fn, Turbo | All ten captured from hardware; patched parser agrees. Steam events confirm all ten, including LM/RM press and release | Assigned-action test; Turbo reports a short pulse rather than a held state |
+| M1–M4, C/Z, LM/RM, Fn, Turbo | All ten captured from hardware and delivered as assigned keyboard actions through Steam Input; paddle labels confirmed in an ordered test | Turbo reports a short pulse rather than a held state |
 | LEDs | Steady, breathing and gradient configurations pass complete readback; user confirmed corrected colors | Visual animation and brightness/off checks |
 | Steam Input | All ten extra controls accept bindings in Steam's editor. Native/fallback transitions expose one controller and release stale button state | Physical binding delivery |
 | Couch app | Installed image app launches through its Steam shortcut; user operated the color picker and button test; automated navigation checks pass | Off/on recovery confirmed by user; navigation polish remains |
@@ -276,4 +276,14 @@ write errors. Trigger-motor rumble is not implemented in SDL yet.
 
 The final isolated LM/RM check recorded Steam bits 34 and 35, respectively,
 with separate releases. All ten extra controls now have physical Steam event
-evidence. A dedicated test shortcut is being used for assigned-action delivery.
+evidence.
+
+## Assigned Steam Input actions
+
+The separate **Flydigi Steam Input Check** shortcut received press and release
+events for all ten assigned keyboard actions, A through J. The app only observes
+Qt key events; it does not read HID reports or synthesize input. An ordered
+M1, M2, M3, M4 check then confirmed A, B, C, D after correcting the test's
+configuration. The driver did not need a paddle change: the first test incorrectly
+assumed which Steam configuration IDs corresponded to R4/R5 and L4/L5.
+The corrected mapping is in [the test instructions](../experimental/STEAM-INPUT-CHECK.md).
