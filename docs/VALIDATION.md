@@ -194,3 +194,18 @@ app through its shortcut; temporary test library overrides were removed.
 The controller was off after the final reboot. Steam capture is prepared for its
 next connection. LM/RM events, assigned-action delivery and physical reconnection
 remain unverified; the image is a candidate, not a public-channel release.
+
+
+## App hotplug and missing native reports
+
+The next physical run found that a controller turned on after app launch could
+navigate Steam but not the app. The app called `SDL_UpdateJoysticks` without
+pumping SDL events; udev hotplug processing needs the event pump. The Qt timer
+now pumps and drains SDL events before discovering joystick handles. A regression
+test covers initial absence, connection, disconnection and a new device ID.
+
+That run also produced zero raw reports because Steam had only acquired the Xbox
+fallback. The button test now reports this after three seconds instead of waiting
+silently for a minute. It does not claim the interface or change input settings.
+The app suite passes all 30 tests on K17, including Qt UI tests. Physical hotplug
+validation is pending alongside the SDL startup recovery candidate.

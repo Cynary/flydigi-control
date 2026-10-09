@@ -25,6 +25,17 @@ class CaptureTests(unittest.TestCase):
         written.assert_not_called()
         closed.assert_called_once_with(8)
 
+    def test_missing_native_reports_fails_with_actionable_error(self):
+        output = io.StringIO()
+        with patch('flydigi_control.capture.discover', return_value=[{'path': '/dev/hidraw8'}]), \
+             patch('os.open', return_value=8), patch('os.close') as closed, \
+             patch('select.select', return_value=([], [], [])) as ready, \
+             patch('time.monotonic', side_effect=[0, 0.1]):
+            with self.assertRaisesRegex(RuntimeError, 'No native input reports'):
+                monitor('/dev/hidraw8', 60, output)
+        self.assertEqual(ready.call_args.args[3], 3.0)
+        closed.assert_called_once_with(8)
+
 
 if __name__ == '__main__':
     unittest.main()

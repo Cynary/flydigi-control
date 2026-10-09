@@ -15,6 +15,8 @@ class GamepadNavigation:
             'SDL_OpenJoystick': ([C.c_uint32], C.c_void_p),
             'SDL_CloseJoystick': ([C.c_void_p], None),
             'SDL_UpdateJoysticks': ([], None),
+            'SDL_PumpEvents': ([], None),
+            'SDL_FlushEvents': ([C.c_uint32, C.c_uint32], None),
             'SDL_GetJoystickButton': ([C.c_void_p, C.c_int], C.c_bool),
             'SDL_GetJoystickHat': ([C.c_void_p, C.c_int], C.c_uint8),
             'SDL_GetJoystickAxis': ([C.c_void_p, C.c_int], C.c_int16),
@@ -32,6 +34,10 @@ class GamepadNavigation:
         self.next_discovery = 0
 
     def poll(self):
+        # udev hotplug processing runs in SDL's event pump, not UpdateJoysticks.
+        # Qt owns the UI loop, so pump SDL explicitly on this main-thread timer.
+        self.lib.SDL_PumpEvents()
+        self.lib.SDL_FlushEvents(0, 0xffff)
         now = time.monotonic()
         if now >= self.next_discovery:
             count = C.c_int()

@@ -28,7 +28,12 @@ def monitor(path, seconds, output):
     try:
         emit({'event': 'start', 'device': path, 'seconds': seconds, 'mode': 'passive'})
         while (remaining := end - time.monotonic()) > 0:
-            if not select.select([fd], [], [], remaining)[0]:
+            wait = min(remaining, 3.0) if not reports else remaining
+            if not select.select([fd], [], [], wait)[0]:
+                if not reports:
+                    raise RuntimeError('No native input reports received. Turn the controller on and enable '
+                                       'Native Steam Input. Steam must acquire the native interface; '
+                                       'an Xbox-only connection cannot expose the extra buttons.')
                 break
             try:
                 data = os.read(fd, 64)
