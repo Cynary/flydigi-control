@@ -93,6 +93,41 @@ class UITests(unittest.TestCase):
         self.press(Qt.Key.Key_Return)
         self.assertEqual(self.window.pages.currentIndex(),3)
 
+    def test_profile_fields_load_without_writes_and_reject_invalid_travel(self):
+        from test_profile_controls import profile
+        panel=self.window.trigger_panel
+        panel.set_available(True)
+        panel.load(dict(mapping=profile(),profile=0))
+        self.assertEqual(panel.values()['maximum'],45)
+        self.assertTrue(panel.save.isEnabled())
+        panel.fields['start'].setValue(255)
+        self.assertFalse(panel.save.isEnabled())
+        self.assertIsNone(self.window.worker)
+        panel.side.setCurrentIndex(1)
+        self.assertTrue(panel.save.isEnabled())
+        self.assertEqual(panel.values()['start'],0)
+
+    def test_unknown_saved_profile_value_is_not_clamped_and_saved(self):
+        from test_profile_controls import profile
+        value=bytearray(profile());value[149]=150
+        panel=self.window.grip_panel
+        panel.set_available(True)
+        panel.load(dict(mapping=bytes(value),profile=0))
+        self.assertFalse(panel.save.isEnabled())
+        self.assertIn('Unknown saved strength',panel.details.text())
+        panel.clear()
+        self.assertIsNone(panel.mapping)
+
+    def test_trigger_page_does_not_clip_motor_fields(self):
+        from test_profile_controls import profile
+        panel=self.window.trigger_panel
+        self.window.pages.setCurrentIndex(7)
+        panel.load(dict(mapping=profile(),profile=0))
+        for _ in range(3):self.app.processEvents()
+        last=panel.fields['strength']
+        self.assertLess(last.mapTo(panel,last.rect().bottomLeft()).y(),panel.details.y())
+        self.assertLessEqual(self.window.minimumSizeHint().height(),1080)
+
     def test_motor_stop_remains_available_while_settings_are_locked(self):
         from flydigi_control.motor_ui import MotorTest
         self.window.devices = [dict(path='/dev/test', remote_wake_advertised=False)]

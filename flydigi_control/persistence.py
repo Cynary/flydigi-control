@@ -40,25 +40,33 @@ def apply_lighting(device, mode, colors, brightness, period, backup_dir):
         lighting_update=lambda original: make_blob(original, mode, colors, brightness, period))
 
 
-def apply_stick_shape(device, previous_mapping, side, shape, backup_dir):
+def apply_stick_shape(device, previous_mapping, side, shape, backup_dir, *, expected_profile=None):
     from .sticks import with_shape
     def update(mapping):
         if mapping != previous_mapping:
             raise RuntimeError('Controller settings changed; read them again before applying')
         return with_shape(mapping, side, shape)
-    return apply_configuration(device, backup_dir, mapping_update=update)
+    return apply_configuration(device, backup_dir, mapping_update=update, expected_profile=expected_profile)
 
 
-def apply_stick_curve(device, previous_mapping, side, curve, backup_dir):
+def apply_stick_curve(device, previous_mapping, side, curve, backup_dir, *, expected_profile=None):
     from .curves import with_curve
     def update(mapping):
         if mapping != previous_mapping:
             raise RuntimeError('Controller settings changed; read them again before applying')
         return with_curve(mapping, side, curve)
-    return apply_configuration(device, backup_dir, mapping_update=update)
+    return apply_configuration(device, backup_dir, mapping_update=update, expected_profile=expected_profile)
 
 
-def apply_configuration(device, backup_dir, *, lighting_update=None, mapping_update=None):
+def apply_mapping_edit(device, previous_mapping, edit, backup_dir, *, expected_profile=None):
+    def update(mapping):
+        if mapping != previous_mapping:
+            raise RuntimeError('Controller settings changed; read them again before applying')
+        return edit(mapping)
+    return apply_configuration(device, backup_dir, mapping_update=update, expected_profile=expected_profile)
+
+
+def apply_configuration(device, backup_dir, *, lighting_update=None, mapping_update=None, expected_profile=None):
     """Caller holds ConfigurationDevice's lock throughout this transaction.
 
     Save only on an explicit Apply, never from a reconnect or polling handler.
@@ -68,6 +76,8 @@ def apply_configuration(device, backup_dir, *, lighting_update=None, mapping_upd
     identity = device.info()
     state = device.profile_state()
     profile, versions = state
+    if expected_profile is not None and profile != expected_profile:
+        raise RuntimeError('Active profile changed; read settings again before applying')
     mapping = device.read_mapping(profile)
     if _mapping_version(mapping) != versions[profile]:
         raise RuntimeError('Profile version changed; nothing was written')

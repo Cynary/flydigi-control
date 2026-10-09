@@ -6,7 +6,7 @@ from unittest.mock import patch
 
 from flydigi_control import protocol
 from flydigi_control.persistence import apply_lighting
-from flydigi_control.persistence import apply_stick_shape, apply_stick_curve
+from flydigi_control.persistence import apply_stick_shape, apply_stick_curve, apply_mapping_edit
 from flydigi_control.transport import ConfigurationDevice
 
 
@@ -195,3 +195,10 @@ class PersistenceTests(unittest.TestCase):
         self.assertEqual(self.device.mapping, expected)
         self.assertEqual(self.device.lighting,lights)
         self.assertEqual([w[0] for w in self.device.writes],['mapping','save'])
+
+    def test_identical_mapping_on_a_different_active_profile_is_not_edited(self):
+        original=bytes(self.device.mapping)
+        with self.assertRaisesRegex(RuntimeError,'Active profile changed'):
+            apply_mapping_edit(self.device,original,lambda value:value,self.tmp.name,expected_profile=0)
+        self.assertEqual(self.device.writes,[])
+        self.assertEqual(list(Path(self.tmp.name).iterdir()),[])

@@ -18,16 +18,18 @@ from .sticks import read_sticks
 from .analog_ui import AnalogPanel, AnalogTest
 from .motor_ui import MotorPanel, MotorTest
 from .curve_ui import CurvePanel
+from .profile_ui import ProfilePanel, ProfileOperation
 
 
 class StickOperation(QThread):
     result = Signal(bool, str)
     values = Signal(object)
 
-    def __init__(self, path, mapping=None, side=None, shape=None, parent=None, curve=None):
+    def __init__(self, path, mapping=None, side=None, shape=None, parent=None, curve=None, profile=None):
         super().__init__(parent)
         self.path, self.mapping, self.side, self.shape = path, mapping, side, shape
         self.curve = curve
+        self.profile = profile
 
     def run(self):
         try:
@@ -35,9 +37,9 @@ class StickOperation(QThread):
                 if self.side is not None:
                     folder = Path(os.environ.get('XDG_STATE_HOME', str(Path.home() / '.local/state'))) / 'flydigi-control'
                     if self.curve is not None:
-                        apply_stick_curve(device, self.mapping, self.side, self.curve, folder)
+                        apply_stick_curve(device, self.mapping, self.side, self.curve, folder, expected_profile=self.profile)
                     else:
-                        apply_stick_shape(device, self.mapping, self.side, self.shape, folder)
+                        apply_stick_shape(device, self.mapping, self.side, self.shape, folder, expected_profile=self.profile)
                 device.info()
                 state = device.profile_state()
                 mapping = device.read_mapping(state[0])
@@ -275,6 +277,12 @@ class Window(QWidget):
         settings.addWidget(self.hotkeys)
         self.label(settings, 'Fn + A / B / X / Y selects controller profiles 1 / 2 / 3 / 4.\n'
                             'These shortcuts and Turbo are handled by the controller.', 'muted')
+        profile_buttons = QHBoxLayout()
+        self.trigger_settings = QPushButton('Trigger settings')
+        self.grip_settings = QPushButton('Saved grip vibration')
+        profile_buttons.addWidget(self.trigger_settings)
+        profile_buttons.addWidget(self.grip_settings)
+        settings.addLayout(profile_buttons)
         self.settings_result = self.label(settings, 'Read the controller before changing a setting.', 'muted')
         self.settings_result.setWordWrap(True)
         settings.addStretch()
@@ -340,6 +348,15 @@ class Window(QWidget):
         self.curve_panel.back.clicked.connect(lambda: self.pages.setCurrentIndex(3))
         self.curve_panel.save.clicked.connect(self.save_response)
         self.pages.addWidget(self.curve_panel)
+        self.trigger_panel = ProfilePanel('trigger')
+        self.grip_panel = ProfilePanel('grip')
+        for panel in (self.trigger_panel,self.grip_panel):
+            panel.back.clicked.connect(lambda: self.pages.setCurrentIndex(1))
+            panel.read.clicked.connect(lambda checked=False,p=panel: self.profile_operation(p))
+            panel.save.clicked.connect(lambda checked=False,p=panel: self.profile_operation(p,save=True))
+            self.pages.addWidget(panel)
+        self.trigger_settings.clicked.connect(lambda: self.pages.setCurrentIndex(7))
+        self.grip_settings.clicked.connect(lambda: self.pages.setCurrentIndex(8))
         self.label(root_layout, 'D-pad / stick: navigate    A: select    B: return to Steam', 'eyebrow')
         self.controls = [self.device_box, self.lighting_tab, self.settings_tab, self.test_tab,
                          self.effect, self.color_slot, self.add_color, self.remove_color,
@@ -347,7 +364,8 @@ class Window(QWidget):
                          self.read_settings, self.native, self.turbo, self.hotkeys, self.test_start,
                          self.sticks_tab, self.stick_read, self.stick_side, self.stick_shape, self.stick_apply,
                          self.analog_tab, self.analog_start, self.motor_tab, *self.motor_panel.controls,
-                         self.stick_response, *self.curve_panel.controls]
+                         self.stick_response, *self.curve_panel.controls,
+                         self.trigger_settings,self.grip_settings,*self.trigger_panel.controls,*self.grip_panel.controls]
         for control in self.controls:
             control.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
         try:
@@ -446,6 +464,7 @@ class Window(QWidget):
             self.device_box.blockSignals(False)
             self.feature_values = {}
             self.stick_values = None
+            for panel in (self.trigger_panel,self.grip_panel):panel.clear()
         self.show_device()
 
     def show_device(self):
@@ -454,6 +473,8 @@ class Window(QWidget):
             tab.setEnabled(not self.testing)
         self.motor_panel.set_available(bool(self.devices) and not busy, isinstance(self.worker, MotorTest))
         self.curve_panel.set_available(bool(self.devices) and not busy and self.stick_values is not None)
+        for panel in (self.trigger_panel,self.grip_panel):
+            panel.set_available(bool(self.devices) and not busy)
         self.test_start.setEnabled(bool(self.devices) and not busy)
         self.analog_start.setEnabled(bool(self.devices) and not busy)
         self.apply.setEnabled(bool(self.devices) and not busy)
@@ -482,6 +503,7 @@ class Window(QWidget):
     def device_changed(self):
         self.feature_values = {}
         self.stick_values = None
+        for panel in (self.trigger_panel,self.grip_panel):panel.clear()
         self.show_device()
 
     def apply_color(self, checked=False, off=False):
@@ -509,6 +531,8 @@ class Window(QWidget):
             self.motor_panel.all.setFocus()
         elif self.pages.currentIndex() == 6:
             self.curve_panel.back.setFocus()
+        elif self.pages.currentIndex() in (7,8):
+            self.pages.currentWidget().read.setFocus()
         else:
             self.read_settings.setFocus()
 
@@ -526,6 +550,23 @@ class Window(QWidget):
     def set_feature_values(self, values):
         self.feature_values = values
 
+    def profile_operation(self,panel,save=False):
+        if self.worker is not None or not self.devices or (save and panel.mapping is None):
+            return
+        edit=panel.edit() if save else None
+        if save:
+            try:edit(panel.mapping)
+            except ValueError as error:
+                panel.result.setText(str(error));return
+        self.worker=ProfileOperation(self.device_box.currentData(),panel.mapping if save else None,edit,self,
+                                     profile=panel.profile if save else None)
+        self.worker.values.connect(panel.load)
+        self.worker.result.connect(lambda ok,text:panel.result.setText(text))
+        self.worker.finished.connect(self.applied)
+        panel.result.setText('Backing up and verifying profile…' if save else 'Reading active profile…')
+        self.show_device()
+        self.worker.start()
+
     def load_stick(self, unused=None):
         if self.stick_values is None:
             return
@@ -541,6 +582,7 @@ class Window(QWidget):
         side = self.stick_side.currentIndex()
         self.curve_side = side
         self.curve_mapping = self.stick_values['mapping']
+        self.curve_profile = self.stick_values['profile']
         self.curve_panel.reset(side, self.stick_values['sticks'][side]['curve_points'])
         self.pages.setCurrentIndex(6)
         self.curve_panel.kind.setFocus()
@@ -557,7 +599,7 @@ class Window(QWidget):
             self.curve_panel.result.setText(str(error))
             return
         self.worker = StickOperation(self.device_box.currentData(), self.curve_mapping,
-                                     self.curve_side, parent=self, curve=curve)
+                                     self.curve_side, parent=self, curve=curve, profile=self.curve_profile)
         self.worker.values.connect(self.set_stick_values)
         self.worker.result.connect(lambda ok, text: self.curve_panel.result.setText(text))
         self.worker.finished.connect(self.applied)
@@ -579,7 +621,8 @@ class Window(QWidget):
         self.worker = StickOperation(self.device_box.currentData(),
             self.stick_values['mapping'] if apply else None,
             self.stick_side.currentIndex() if apply else None,
-            self.stick_shape.currentIndex() if apply else None, self)
+            self.stick_shape.currentIndex() if apply else None, self,
+            profile=self.stick_values['profile'] if apply else None)
         self.worker.values.connect(self.set_stick_values)
         self.worker.result.connect(lambda ok, text: self.stick_result.setText(text))
         self.worker.finished.connect(self.applied)
