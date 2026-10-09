@@ -27,14 +27,20 @@ are superseded by this table and the later results.
 
 ## Current evidence
 
+The onboard button-mapping candidate supports ordinary gamepad outputs and
+rapid fire for the 24 buttons editable in the official app. Tests cover every
+source/target pair and profile formats 3.0–3.2, with all other bytes preserved.
+Macro/PC mappings remain read-only; no mapping writes have been sent to hardware.
+[Format, UI and pending validation](BUTTON-MAPPINGS.md).
+
 The global-settings candidate now includes capability-gated filtering, automatic
 calibration, rebound suppression, precision, center sensitivity and sleep controls.
 Its packet and UI checks pass, but these new commands have not been sent to hardware.
 [Protocol details and remaining checks](HARDWARE-SETTINGS.md).
 
-2026-10-09: The `onboard-settings` candidate passes 97 protocol, persistence,
+2026-10-09: The `onboard-settings` candidate passes 107 protocol, persistence,
 diagnostic and Qt tests on the K17. Offscreen previews of the stick settings and
-analog/motor/response/trigger/grip/global-settings pages were inspected, using simulated input or
+analog/motor/response/trigger/grip/global-settings/button-mapping pages were inspected, using simulated input or
 the saved read-only profile. Curve samples
 match 12 numeric cases from the official frontend. Tests cover stale
 profile rejection, preservation of unrelated settings, backup failure, and an

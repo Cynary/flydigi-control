@@ -20,6 +20,7 @@ from .motor_ui import MotorPanel, MotorTest
 from .curve_ui import CurvePanel
 from .profile_ui import ProfilePanel, ProfileOperation
 from .hardware_ui import HardwarePanel, HardwareOperation
+from .button_ui import ButtonMappingPanel
 
 
 class StickOperation(QThread):
@@ -285,7 +286,11 @@ class Window(QWidget):
         profile_buttons.addWidget(self.grip_settings)
         settings.addLayout(profile_buttons)
         self.hardware_settings = QPushButton('Global controller settings')
-        settings.addWidget(self.hardware_settings)
+        self.button_settings = QPushButton('Onboard button mappings')
+        advanced_buttons = QHBoxLayout()
+        advanced_buttons.addWidget(self.hardware_settings)
+        advanced_buttons.addWidget(self.button_settings)
+        settings.addLayout(advanced_buttons)
         self.settings_result = self.label(settings, 'Read the controller before changing a setting.', 'muted')
         self.settings_result.setWordWrap(True)
         settings.addStretch()
@@ -366,6 +371,12 @@ class Window(QWidget):
         self.hardware_panel.apply.clicked.connect(lambda: self.hardware_operation(apply=True))
         self.pages.addWidget(self.hardware_panel)
         self.hardware_settings.clicked.connect(lambda: self.pages.setCurrentIndex(9))
+        self.button_panel = ButtonMappingPanel()
+        self.button_panel.back.clicked.connect(lambda: self.pages.setCurrentIndex(1))
+        self.button_panel.read.clicked.connect(lambda: self.profile_operation(self.button_panel))
+        self.button_panel.save.clicked.connect(lambda: self.profile_operation(self.button_panel,save=True))
+        self.pages.addWidget(self.button_panel)
+        self.button_settings.clicked.connect(lambda: self.pages.setCurrentIndex(10))
         self.label(root_layout, 'D-pad / stick: navigate    A: select    B: return to Steam', 'eyebrow')
         self.controls = [self.device_box, self.lighting_tab, self.settings_tab, self.test_tab,
                          self.effect, self.color_slot, self.add_color, self.remove_color,
@@ -375,7 +386,7 @@ class Window(QWidget):
                          self.analog_tab, self.analog_start, self.motor_tab, *self.motor_panel.controls,
                          self.stick_response, *self.curve_panel.controls,
                          self.trigger_settings,self.grip_settings,*self.trigger_panel.controls,*self.grip_panel.controls,
-                         self.hardware_settings,*self.hardware_panel.controls]
+                         self.hardware_settings,*self.hardware_panel.controls,self.button_settings,*self.button_panel.controls]
         for control in self.controls:
             control.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
         try:
@@ -474,7 +485,7 @@ class Window(QWidget):
             self.device_box.blockSignals(False)
             self.feature_values = {}
             self.stick_values = None
-            for panel in (self.trigger_panel,self.grip_panel,self.hardware_panel):panel.clear()
+            for panel in (self.trigger_panel,self.grip_panel,self.hardware_panel,self.button_panel):panel.clear()
         self.show_device()
 
     def show_device(self):
@@ -486,6 +497,7 @@ class Window(QWidget):
         for panel in (self.trigger_panel,self.grip_panel):
             panel.set_available(bool(self.devices) and not busy)
         self.hardware_panel.set_available(bool(self.devices) and not busy)
+        self.button_panel.set_available(bool(self.devices) and not busy)
         self.test_start.setEnabled(bool(self.devices) and not busy)
         self.analog_start.setEnabled(bool(self.devices) and not busy)
         self.apply.setEnabled(bool(self.devices) and not busy)
@@ -514,7 +526,7 @@ class Window(QWidget):
     def device_changed(self):
         self.feature_values = {}
         self.stick_values = None
-        for panel in (self.trigger_panel,self.grip_panel,self.hardware_panel):panel.clear()
+        for panel in (self.trigger_panel,self.grip_panel,self.hardware_panel,self.button_panel):panel.clear()
         self.show_device()
 
     def apply_color(self, checked=False, off=False):
@@ -542,7 +554,7 @@ class Window(QWidget):
             self.motor_panel.all.setFocus()
         elif self.pages.currentIndex() == 6:
             self.curve_panel.back.setFocus()
-        elif self.pages.currentIndex() in (7,8,9):
+        elif self.pages.currentIndex() in (7,8,9,10):
             self.pages.currentWidget().read.setFocus()
         else:
             self.read_settings.setFocus()

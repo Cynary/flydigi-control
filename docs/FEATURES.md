@@ -6,7 +6,7 @@ parser test does not establish that the corresponding control works on hardware.
 
 | Area | Current state | Remaining work |
 | --- | --- | --- |
-| Buttons | All ten extras verified through Steam Input; existing button test | Full analog live view and vendor mapping options |
+| Buttons | All ten extras verified through Steam Input; candidate onboard editor supports 24 button mappings and rapid fire | Hardware mapping/output/persistence checks; keyboard/mouse and multifunction mapping editors |
 | Lighting | Colors verified, effect uploads read back | Flow/brightness/off visual checks; onboard persistence power-cycle test |
 | Persistence | Guarded candidate saves the active profile after backing it up and checking mappings | Verify off/on, receiver replug and reboot with the app closed; check feature switches individually |
 | Grip motors | Separate SDL left/right values; Identify physically confirmed; app candidate has per-motor tests and saved enable/strength controls | Physical validation of tests and saved settings |
@@ -16,7 +16,7 @@ parser test does not establish that the corresponding control works on hardware.
 | Triggers | Candidate edits travel range and per-side vibration amplitude, threshold and strength; one shared enable flag | Hardware response/save tests; native Steam Input interaction |
 | Motion | Gyro and acceleration decoded | Official motion mappings/sensitivity/smoothing options; visible sensor tests and streaming verification |
 | Profiles | Active profile can be read; Fn shortcut control exists | Profile management, backups/import/export and safe save/restore |
-| Macros/Turbo | Extra Turbo button exposed; firmware shortcuts documented | Compare macro editor and firmware feature semantics with the official app |
+| Macros/Turbo | Extra Turbo button exposed; firmware shortcuts documented; candidate edits per-button rapid-fire rate and activation | Macro editor and firmware shortcut behavior validation |
 | Global settings | Candidate edits firmware filtering, automatic calibration, rebound suppression, precision, center sensitivity and sleep, with capability checks | Hardware behavior and persistence; report-rate writes need protocol clarification |
 | Calibration/device tools | Automatic-calibration switch implemented; manual procedure not implemented | Inventory manual calibration, firmware/receiver and other Vader tools before claiming parity |
 | Wake | Receiver does not advertise USB remote wake | No supported method identified; do not claim controller wake works |
@@ -26,6 +26,9 @@ units, shared enable flags and how untouched profile bytes are preserved.
 
 The [global settings notes](HARDWARE-SETTINGS.md) document the controller-wide
 options and why report-rate changes remain read-only.
+
+The [onboard button editor](BUTTON-MAPPINGS.md) handles per-button outputs and
+rapid fire. Macro and PC-supplied keyboard/mouse mappings remain separate work.
 
 ## Circle and rectangle
 

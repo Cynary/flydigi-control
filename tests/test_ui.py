@@ -172,6 +172,45 @@ class UITests(unittest.TestCase):
         self.assertIsNone(panel.snapshot)
         self.assertEqual(panel.result.text(),'Uncertain write')
 
+    def test_onboard_button_editor_loads_without_writes_and_uses_controller(self):
+        from test_button_mappings import profile
+        panel=self.window.button_panel
+        panel.set_available(True)
+        panel.load(dict(mapping=profile(),profile=0))
+        self.window.pages.setCurrentIndex(10)
+        self.assertFalse(panel.save.isEnabled())
+        self.assertFalse(panel.frequency.isEnabled())
+        panel.source.setCurrentIndex(18)
+        self.assertEqual(panel.target.currentData(),18)
+        panel.target.setCurrentIndex(4)
+        self.assertTrue(panel.save.isEnabled())
+        self.assertIsNone(self.window.worker)
+        panel.kind.setCurrentIndex(1)
+        self.assertTrue(panel.frequency.isEnabled())
+        panel.frequency.setFocus()
+        initial=panel.frequency.value()
+        self.press(Qt.Key.Key_Right)
+        self.assertEqual(panel.frequency.value(),initial+1)
+        for _ in range(3):self.app.processEvents()
+        self.assertLessEqual(self.window.minimumSizeHint().height(),1080)
+        panel.back.setFocus();self.press(Qt.Key.Key_Return)
+        self.assertEqual(self.window.pages.currentIndex(),1)
+
+    def test_onboard_button_editor_preserves_unsupported_mapping(self):
+        from test_button_mappings import profile
+        panel=self.window.button_panel
+        panel.set_available(True)
+        value=bytearray(profile());value[13]=32
+        panel.load(dict(mapping=bytes(value),profile=0))
+        self.assertFalse(panel.save.isEnabled())
+        self.assertFalse(panel.kind.isEnabled())
+        self.assertIn('macro',panel.details.text())
+        panel.source.setCurrentIndex(1)
+        self.assertTrue(panel.kind.isEnabled())
+        self.window.device_changed()
+        self.assertIsNone(panel.mapping)
+        self.assertFalse(panel.save.isEnabled())
+
     def test_motor_stop_remains_available_while_settings_are_locked(self):
         from flydigi_control.motor_ui import MotorTest
         self.window.devices = [dict(path='/dev/test', remote_wake_advertised=False)]
