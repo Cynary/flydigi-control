@@ -23,3 +23,11 @@ class LightingTests(unittest.TestCase):
             with self.assertRaises(ValueError):validate_blob(b)
         with self.assertRaises(ValueError):make_blob(self.original,2,[(1,2,3)]*6,50,15)
         with self.assertRaises(ValueError):make_blob(self.original,4,[(1,2,3)],50,15)
+
+    def test_flow_preserves_hardware_geometry(self):
+        b=make_blob(self.original,1,[],20,4)
+        self.assertEqual(len(b),320)
+        self.assertEqual(b[4:9],bytes([9,4,20,10,1]))
+        self.assertEqual(b[20:29],bytes([0,128,128])*3)
+        with self.assertRaises(ValueError):
+            make_blob(self.original + bytes(30),1,[],20,4)

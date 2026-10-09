@@ -36,7 +36,9 @@ The temporary `F5` color override has been replaced in the UI by the normal ligh
 
 The tested wireless controller, firmware 7.1.5.0, reports **10 LED zones and 10 animation frames**, a 320-byte version-3 configuration. Do not hardcode 12 zones from the service's generic animation table. Reading hardware geometry avoids that mismatch.
 
-Steady, breathing and gradient uploads passed byte-for-byte readback on hardware. Visual animation and color checks remain necessary. The UI currently offers those modes, Off and the six color shortcuts. Arbitrary RGB/hex entry, multi-color editing, Flow and factory-default restoration are not implemented yet. They should use the findings above rather than invented defaults.
+Steady, breathing and gradient uploads passed byte-for-byte readback on hardware. Visual animation and color checks remain necessary. The UI offers those modes, Off, Flow, the six color shortcuts, RGB sliders and up to five colors for Breathing and Gradient. Hex values are displayed alongside each color. Factory-default restoration is not implemented.
+
+Flow uses the numeric frames from the service’s generic preset, cropped to the LED count reported by the controller. It sets the loop end to the last valid frame. This adaptation still needs a physical animation check; it is not a claim of identical factory lighting.
 
 Each UI upload first saves a backup beneath `~/.local/state/flydigi-control/`. Changes are temporary: no flash-save command is sent. Missing acknowledgements for indexed LED chunks are retried once after a read-only query, followed by whole-configuration verification. A missing acknowledgement is not itself proof that a write failed.
 

@@ -23,8 +23,10 @@ python3 -m flydigi_control
 
 Add the installed `flydigi-control` executable as a non-Steam game to launch it
 from Big Picture. Use the D-pad or left stick to navigate, A to select and B to
-exit. Keyboard navigation also works. The app currently offers temporary solid
-colors; controller power-off restores its stored lighting.
+exit. Keyboard navigation also works. Lighting modes include Steady, Breathing,
+Gradient, Flow and Off, with RGB, brightness and cycle controls. Changes are
+temporary; controller power-off restores its stored lighting. See
+[lighting details and validation](docs/LIGHTING.md).
 
 Command-line checks:
 
@@ -50,8 +52,10 @@ vendor interface carries M1–M4, C/Z, LM/RM, Fn, Turbo and motion data. SDL has
 native Flydigi driver, including a Vader 5 Pro transport fix merged in May 2026.
 That is the first path being tested for Steam Input support.
 
-The current SDL driver exposes the paddles, C/Z, LM/RM and Fn. It does not expose
-the Turbo pulse as a separate button. The kernel driver proposal also describes
+Steam’s bundled SDL driver exposes the paddles, C/Z, LM/RM and Fn. Our
+[SDL fork](https://github.com/Cynary/SDL/tree/vader5-turbo) adds Turbo as a
+separate button. Its parser passes replay tests; physical mapping in Steam
+is still being validated. The kernel driver proposal also describes
 Steam ignoring its extra evdev controls, so installing that driver alone would
 not meet this project's requirements. See [validation work](docs/VALIDATION.md).
 

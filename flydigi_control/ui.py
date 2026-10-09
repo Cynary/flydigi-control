@@ -6,7 +6,7 @@ import os
 import time
 from pathlib import Path
 from PySide6.QtCore import Qt, QTimer, QThread, Signal
-from PySide6.QtGui import QKeyEvent
+from PySide6.QtGui import QKeyEvent, QIcon, QPixmap, QColor
 from PySide6.QtWidgets import (QApplication, QWidget, QLabel, QPushButton,
     QVBoxLayout, QHBoxLayout, QGridLayout, QSlider, QComboBox, QStackedWidget)
 from .transport import discover, ConfigurationDevice
@@ -104,6 +104,8 @@ class Window(QWidget):
         self.worker = None
         self.testing = False
         self.selected = '#ff00ff'
+        self.colors = [(255, 0, 255)]
+        self.loading_color = False
         self.devices = []
         self.feature_values = {}
         self.setStyleSheet('''
@@ -112,17 +114,17 @@ class Window(QWidget):
             QLabel#title { font-size:36px; font-weight:600; }
             QLabel#muted { color:#a9bacb; font-size:21px; }
             QPushButton, QComboBox { background:#293848; border:3px solid transparent;
-                border-radius:10px; padding:12px; text-align:left; }
+                border-radius:10px; padding:9px; text-align:left; }
             QPushButton:focus, QComboBox:focus { border-color:#77cdff; background:#3c536a; }
             QPushButton:disabled { color:#8e9bab; }
-            QSlider { padding:15px; border:3px solid transparent; border-radius:10px; }
+            QSlider { padding:8px; border:3px solid transparent; border-radius:10px; }
             QSlider:focus { border-color:#77cdff; }
             QSlider::groove:horizontal { height:8px; background:#405063; }
             QSlider::handle:horizontal { background:#77cdff; width:24px; margin:-8px 0; border-radius:10px; }
         ''')
         layout = QVBoxLayout(self)
         layout.setContentsMargins(48, 24, 48, 24)
-        layout.setSpacing(12)
+        layout.setSpacing(8)
         self.label(layout, 'MOONMACHINE  /  CONTROLLERS', 'eyebrow')
         self.label(layout, 'Flydigi Vader 5 Pro', 'title')
         self.status = self.label(layout, '', 'muted')
@@ -148,17 +150,48 @@ class Window(QWidget):
         layout = QVBoxLayout(lighting_page)
         self.pages.addWidget(lighting_page)
         self.effect = QComboBox()
-        for label, mode in [('Steady', 5), ('Breathing', 2), ('Gradient (blue / red / green)', 3)]:
+        for label, mode in [('Steady', 5), ('Breathing', 2), ('Gradient', 3), ('Flow', 1)]:
             self.effect.addItem(label, mode)
         layout.addWidget(self.effect)
+        self.effect.currentIndexChanged.connect(self.effect_changed)
+        color_row = QHBoxLayout()
+        self.color_slot = QComboBox()
+        self.color_slot.currentIndexChanged.connect(self.load_color)
+        color_row.addWidget(self.color_slot)
+        self.add_color = QPushButton('Add color')
+        self.add_color.clicked.connect(self.append_color)
+        color_row.addWidget(self.add_color)
+        self.remove_color = QPushButton('Remove color')
+        self.remove_color.clicked.connect(self.delete_color)
+        color_row.addWidget(self.remove_color)
+        layout.addLayout(color_row)
         grid = QGridLayout()
         self.color_buttons = []
         for index, (name, color) in enumerate(self.COLORS):
-            button = QPushButton('●  ' + name)
+            button = QPushButton(name)
+            swatch = QPixmap(24, 24)
+            swatch.fill(QColor(color))
+            button.setIcon(QIcon(swatch))
             button.clicked.connect(lambda checked=False, c=color: self.choose(c))
             grid.addWidget(button, index // 3, index % 3)
             self.color_buttons.append(button)
         layout.addLayout(grid)
+        self.rgb_sliders = []
+        rgb_row = QHBoxLayout()
+        for name in ('R', 'G', 'B'):
+            column = QVBoxLayout()
+            label = QLabel(name + ": 0")
+            slider = QSlider(Qt.Orientation.Horizontal)
+            slider.setRange(0, 255)
+            slider.setSingleStep(1)
+            slider.setProperty('step', 1)
+            slider.valueChanged.connect(lambda value, n=name, l=label: l.setText(f'{n}: {value}'))
+            slider.valueChanged.connect(self.rgb_changed)
+            column.addWidget(label)
+            column.addWidget(slider)
+            self.rgb_sliders.append(slider)
+            rgb_row.addLayout(column)
+        layout.addLayout(rgb_row)
         self.brightness_label = self.label(layout, 'Brightness · 30%', 'muted')
         self.brightness = QSlider(Qt.Orientation.Horizontal)
         self.brightness.setRange(0, 100)
@@ -225,7 +258,8 @@ class Window(QWidget):
         test_layout.addStretch()
         self.label(root_layout, 'D-pad / stick: navigate    A: select    B: return to Steam', 'eyebrow')
         self.controls = [self.device_box, self.lighting_tab, self.settings_tab, self.test_tab,
-                         self.effect, *self.color_buttons, self.brightness, self.period, self.apply, self.off,
+                         self.effect, self.color_slot, self.add_color, self.remove_color,
+                         *self.color_buttons, *self.rgb_sliders, self.brightness, self.period, self.apply, self.off,
                          self.read_settings, self.native, self.turbo, self.hotkeys, self.test_start]
         for control in self.controls:
             control.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
@@ -240,6 +274,7 @@ class Window(QWidget):
         self.discovery_timer.timeout.connect(self.refresh)
         self.discovery_timer.start(2000)
         self.refresh()
+        self.refresh_colors()
         self.color_buttons[0].setFocus()
 
     def label(self, layout, text, name):
@@ -248,11 +283,64 @@ class Window(QWidget):
         layout.addWidget(label)
         return label
 
+    def refresh_colors(self, index=0):
+        self.color_slot.blockSignals(True)
+        self.color_slot.clear()
+        for i, color in enumerate(self.colors):
+            self.color_slot.addItem(f'Color {i+1} · #{color[0]:02x}{color[1]:02x}{color[2]:02x}')
+        self.color_slot.setCurrentIndex(min(index, len(self.colors)-1))
+        self.color_slot.blockSignals(False)
+        self.load_color()
+        mode = self.effect.currentData()
+        editable = mode != 1
+        for widget in [self.color_slot, *self.color_buttons, *self.rgb_sliders]:
+            widget.setEnabled(editable)
+        self.add_color.setEnabled(mode in (2, 3) and len(self.colors) < 5)
+        self.remove_color.setEnabled(mode in (2, 3) and len(self.colors) > (2 if mode == 3 else 1))
+        self.period.setEnabled(mode in (1, 2, 3))
+
+    def load_color(self, unused=None):
+        if not hasattr(self, 'rgb_sliders') or self.color_slot.currentIndex() < 0:
+            return
+        self.loading_color = True
+        for slider, value in zip(self.rgb_sliders, self.colors[self.color_slot.currentIndex()]):
+            slider.setValue(value)
+        self.loading_color = False
+        self.apply.setText('Apply lighting')
+
+    def rgb_changed(self, unused=None):
+        if self.loading_color or not hasattr(self, 'apply'):
+            return
+        index = self.color_slot.currentIndex()
+        if index >= 0:
+            self.colors[index] = tuple(s.value() for s in self.rgb_sliders)
+            c = self.colors[index]
+            self.color_slot.setItemText(index, f'Color {index+1} · #{c[0]:02x}{c[1]:02x}{c[2]:02x}')
+
     def choose(self, color):
-        self.selected = color
-        name = next(n for n, c in self.COLORS if c == color)
-        self.apply.setText('Apply ' + name.lower())
-        self.apply.setFocus()
+        index = max(0, self.color_slot.currentIndex())
+        self.colors[index] = tuple(int(color[i:i+2], 16) for i in (1, 3, 5))
+        self.refresh_colors(index)
+
+    def effect_changed(self, unused=None):
+        mode = self.effect.currentData()
+        if mode == 5:
+            self.colors = self.colors[:1]
+        elif mode == 3 and len(self.colors) < 2:
+            self.colors = list(GRADIENT)
+        self.period.setValue(4 if mode == 1 else 15)
+        self.brightness.setValue(20 if mode == 1 else 30 if mode == 5 else 50)
+        self.refresh_colors()
+
+    def append_color(self):
+        if self.effect.currentData() in (2, 3) and len(self.colors) < 5:
+            self.colors.append((0, 116, 255))
+            self.refresh_colors(len(self.colors)-1)
+
+    def delete_color(self):
+        if len(self.colors) > (2 if self.effect.currentData() == 3 else 1):
+            self.colors.pop(max(0, self.color_slot.currentIndex()))
+            self.refresh_colors()
 
     def refresh(self):
         devices = discover()
@@ -303,8 +391,7 @@ class Window(QWidget):
         if self.worker is not None or not self.devices:
             return
         mode = 6 if off else self.effect.currentData()
-        color = tuple(int(self.selected[i:i+2], 16) for i in (1, 3, 5))
-        colors = GRADIENT if mode == 3 else (color,)
+        colors = tuple(self.colors)
         self.worker = ApplyColor(self.device_box.currentData(), mode, colors,
                                  self.brightness.value(), self.period.value(), self)
         self.worker.result.connect(lambda ok, text: self.result_label.setText(text))
@@ -394,15 +481,29 @@ class Window(QWidget):
             if isinstance(focused, QPushButton):
                 focused.click()
         elif key in (Qt.Key.Key_Left, Qt.Key.Key_Right) and isinstance(focused, QSlider):
-            focused.setValue(focused.value() + (5 if key == Qt.Key.Key_Right else -5))
+            focused.setValue(focused.value() + (int(focused.property('step') or 5) * (1 if key == Qt.Key.Key_Right else -1)))
         elif key in (Qt.Key.Key_Left, Qt.Key.Key_Right) and isinstance(focused, QComboBox):
             delta = 1 if key == Qt.Key.Key_Right else -1
             focused.setCurrentIndex((focused.currentIndex() + delta) % max(1, focused.count()))
         elif key in (Qt.Key.Key_Up, Qt.Key.Key_Left, Qt.Key.Key_Down, Qt.Key.Key_Right):
             controls = [w for w in self.controls if w.isEnabled() and w.isVisible()]
-            index = controls.index(focused) if focused in controls else 0
-            direction = -1 if key in (Qt.Key.Key_Up, Qt.Key.Key_Left) else 1
-            controls[(index + direction) % len(controls)].setFocus()
+            if not controls:
+                return
+            if focused not in controls:
+                controls[0].setFocus()
+                return
+            origin = focused.mapTo(self, focused.rect().center())
+            horizontal = key in (Qt.Key.Key_Left, Qt.Key.Key_Right)
+            sign = -1 if key in (Qt.Key.Key_Up, Qt.Key.Key_Left) else 1
+            candidates = []
+            for widget in controls:
+                point = widget.mapTo(self, widget.rect().center())
+                dx, dy = point.x()-origin.x(), point.y()-origin.y()
+                forward, sideways = (dx*sign, abs(dy)) if horizontal else (dy*sign, abs(dx))
+                if forward > 0:
+                    candidates.append((forward + 3*sideways, controls.index(widget), widget))
+            if candidates:
+                min(candidates, key=lambda item: item[:2])[2].setFocus()
         else:
             super().keyPressEvent(event)
 

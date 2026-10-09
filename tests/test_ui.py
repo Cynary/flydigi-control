@@ -52,7 +52,7 @@ class UITests(unittest.TestCase):
         self.window.settings_tab.setFocus()
         self.press(Qt.Key.Key_Return)
         self.assertEqual(self.window.pages.currentIndex(), 1)
-        self.press(Qt.Key.Key_Down)
+        self.press(Qt.Key.Key_Right)
         self.assertIs(QApplication.focusWidget(), self.window.test_tab)
         self.window.lighting_tab.setFocus()
         self.press(Qt.Key.Key_Return)
@@ -70,6 +70,26 @@ class UITests(unittest.TestCase):
         self.assertEqual(self.window.pages.currentIndex(), before)
         self.assertTrue(self.window.isVisible())
         self.window.testing = False
+
+    def test_spatial_navigation_follows_color_grid(self):
+        self.window.color_buttons[0].setFocus()
+        self.press(Qt.Key.Key_Right)
+        self.assertIs(QApplication.focusWidget(), self.window.color_buttons[1])
+        self.press(Qt.Key.Key_Down)
+        self.assertIs(QApplication.focusWidget(), self.window.color_buttons[4])
+
+    def test_multicolor_editing_and_rgb_are_independent(self):
+        self.window.effect.setCurrentIndex(2)
+        self.assertEqual(len(self.window.colors), 3)
+        self.window.color_slot.setCurrentIndex(1)
+        self.window.rgb_sliders[0].setValue(237)
+        self.assertEqual(self.window.colors[1][0],237)
+        self.assertEqual(self.window.colors[0],(0,0,100))
+        self.window.brightness.setValue(7)
+        self.assertEqual(self.window.colors[1][0],237)
+        self.window.effect.setCurrentIndex(0)
+        self.assertEqual(len(self.window.colors),1)
+        self.assertFalse(self.window.add_color.isEnabled())
 
     def test_device_change_clears_feature_state(self):
         self.window.feature_values = {'turbo': {'supported': True, 'enabled': True}}
