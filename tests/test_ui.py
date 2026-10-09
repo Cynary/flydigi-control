@@ -48,6 +48,33 @@ class UITests(unittest.TestCase):
     def test_no_device_disables_writes(self):
         for button in (self.window.apply, self.window.off, self.window.turbo, self.window.hotkeys, self.window.native):
             self.assertFalse(button.isEnabled())
+        for button in self.window.motor_panel.buttons:
+            self.assertFalse(button.isEnabled())
+
+    def test_motor_selection_keeps_four_levels_independent(self):
+        panel = self.window.motor_panel
+        for slider, level in zip(panel.sliders, (20, 40, 60, 80)):
+            slider.setValue(level)
+        requested = []
+        panel.requested.connect(requested.append)
+        for side in range(4):
+            panel.request(side)
+        panel.request(None)
+        self.assertEqual(requested, [(51,0,0,0), (0,102,0,0),
+                                     (0,0,153,0), (0,0,0,204), (51,102,153,204)])
+
+    def test_motor_stop_remains_available_while_settings_are_locked(self):
+        from flydigi_control.motor_ui import MotorTest
+        self.window.devices = [dict(path='/dev/test', remote_wake_advertised=False)]
+        worker = MotorTest('/dev/test', (0,0,0,0))
+        self.window.worker = worker
+        self.window.show_device()
+        self.assertFalse(self.window.apply.isEnabled())
+        self.assertTrue(self.window.motor_panel.stop.isEnabled())
+        self.assertFalse(self.window.motor_panel.all.isEnabled())
+        self.window.motor_panel.stop.click()
+        self.assertTrue(worker.cancel.is_set())
+        self.window.worker = None
 
     def test_first_receiver_is_selected(self):
         device = {'path': '/dev/hidraw99', 'name': 'Vader 5 Pro',

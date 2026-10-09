@@ -21,6 +21,10 @@ switch lets Steam acquire the extended interface.
 The [official-app coverage checklist](docs/FEATURES.md) tracks remaining settings,
 independent motor control and diagnostic tests.
 
+The development branch adds a stick-shape editor, a live stick/trigger/motion
+test and separate grip/trigger motor tests. These are candidates awaiting hardware
+validation; they are not yet included in the published image.
+
 ## Run
 
 Requires Python 3.11+, PySide6, and SDL3. Fedora's GUI package is `python3-pyside6`.

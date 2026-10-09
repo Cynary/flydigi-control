@@ -9,8 +9,8 @@ parser test does not establish that the corresponding control works on hardware.
 | Buttons | All ten extras verified through Steam Input; existing button test | Full analog live view and vendor mapping options |
 | Lighting | Colors verified, effect uploads read back | Flow/brightness/off visual checks; onboard persistence power-cycle test |
 | Persistence | Guarded candidate saves the active profile after backing it up and checking mappings | Verify off/on, receiver replug and reboot with the app closed; check feature switches individually |
-| Grip motors | Separate SDL left/right values; Identify physically confirmed | Individual strength controls and repeatable per-motor tests |
-| Trigger motors | SDL candidate independently preserves all four motor levels; replay tests and build pass | Hardware check, app controls, simultaneous four-motor test and streaming-path verification |
+| Grip motors | Separate SDL left/right values; Identify physically confirmed; app candidate has per-motor test levels | Physical validation of the new test page |
+| Trigger motors | SDL candidate preserves all four levels; app candidate tests each motor and all four together | Physical tests, then streaming-path verification |
 | Stick output | Candidate edits left/right circle/rectangle, preserving other profile bytes; deadzone/edge values displayed | Hardware save test; center deadzone, edge adjustment, response curve and mapping editors |
 | Stick diagnostics | Candidate shows live XY, triggers, gyro, acceleration, native report rate and 32-sector circularity error | Hardware/UI check; original versus mapped output comparison and USB polling-rate test |
 | Triggers | Analog values are decoded | Travel/range controls and tests; enumerate Vader-specific vibration settings |
@@ -45,6 +45,22 @@ or changing its mode. It processes every report and refreshes the display at
 30 Hz. “Native reports/s” counts received reports, not USB polls. Circularity is
 the RMS radius error over the visited angular sectors; coverage is shown because
 a partial rotation is not a complete circularity test.
+
+## Four motor tests
+
+The Motors page has independent left/right grip and trigger levels. Each test
+sends a half-second pulse, then an explicit stop; Stop test cancels the pulse
+early. These controls do not save vibration strengths to a profile. The command
+has no onboard duration, so a USB disconnect or process crash can prevent the
+stop from reaching the controller.
+
+The page uses the vendor configuration interface, without changing input mode
+or acquiring the controller from Steam. It tests the hardware protocol; it does
+not prove that a game or a stream forwards trigger vibration. Run it while no
+game is sending vibration, since those commands can replace a test pulse.
+The [SDL candidate](https://github.com/Cynary/SDL/tree/vader5-four-motors) separately
+implements the grip and trigger rumble APIs, preserving the other pair's levels
+when one pair starts or stops. Hardware validation is still pending.
 
 ## Evidence and scope
 

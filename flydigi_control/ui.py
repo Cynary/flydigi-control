@@ -16,6 +16,7 @@ from .lighting import PALETTE, GRADIENT
 from .persistence import apply_lighting, apply_stick_shape
 from .sticks import read_sticks
 from .analog_ui import AnalogPanel, AnalogTest
+from .motor_ui import MotorPanel, MotorTest
 
 
 class StickOperation(QThread):
@@ -160,11 +161,13 @@ class Window(QWidget):
         self.test_tab = QPushButton('Test buttons')
         self.sticks_tab = QPushButton('Sticks')
         self.analog_tab = QPushButton('Sticks / motion test')
+        self.motor_tab = QPushButton('Motors')
         tabs.addWidget(self.lighting_tab)
         tabs.addWidget(self.settings_tab)
         tabs.addWidget(self.test_tab)
         tabs.addWidget(self.sticks_tab)
         tabs.addWidget(self.analog_tab)
+        tabs.addWidget(self.motor_tab)
         layout.addLayout(tabs)
         self.pages = QStackedWidget()
         layout.addWidget(self.pages)
@@ -173,6 +176,7 @@ class Window(QWidget):
         self.test_tab.clicked.connect(lambda: self.pages.setCurrentIndex(2))
         self.sticks_tab.clicked.connect(lambda: self.pages.setCurrentIndex(3))
         self.analog_tab.clicked.connect(lambda: self.pages.setCurrentIndex(4))
+        self.motor_tab.clicked.connect(lambda: self.pages.setCurrentIndex(5))
         root_layout = layout
         lighting_page = QWidget()
         layout = QVBoxLayout(lighting_page)
@@ -320,13 +324,17 @@ class Window(QWidget):
         self.analog_result = self.label(analog_layout, 'Rotate both sticks around the rim, squeeze the triggers and tilt the controller.\n'
                                         'Navigation is disabled during the test. These are native reports, before Steam mappings.', 'muted')
         self.analog_result.setWordWrap(True)
+        self.motor_panel = MotorPanel()
+        self.motor_panel.requested.connect(self.start_motor_test)
+        self.motor_panel.stopped.connect(self.stop_motor_test)
+        self.pages.addWidget(self.motor_panel)
         self.label(root_layout, 'D-pad / stick: navigate    A: select    B: return to Steam', 'eyebrow')
         self.controls = [self.device_box, self.lighting_tab, self.settings_tab, self.test_tab,
                          self.effect, self.color_slot, self.add_color, self.remove_color,
                          *self.color_buttons, *self.rgb_sliders, self.brightness, self.period, self.apply, self.off,
                          self.read_settings, self.native, self.turbo, self.hotkeys, self.test_start,
                          self.sticks_tab, self.stick_read, self.stick_side, self.stick_shape, self.stick_apply,
-                         self.analog_tab, self.analog_start]
+                         self.analog_tab, self.analog_start, self.motor_tab, *self.motor_panel.controls]
         for control in self.controls:
             control.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
         try:
@@ -429,8 +437,9 @@ class Window(QWidget):
 
     def show_device(self):
         busy = self.worker is not None
-        for tab in (self.lighting_tab, self.settings_tab, self.test_tab, self.sticks_tab, self.analog_tab):
+        for tab in (self.lighting_tab, self.settings_tab, self.test_tab, self.sticks_tab, self.analog_tab, self.motor_tab):
             tab.setEnabled(not self.testing)
+        self.motor_panel.set_available(bool(self.devices) and not busy, isinstance(self.worker, MotorTest))
         self.test_start.setEnabled(bool(self.devices) and not busy)
         self.analog_start.setEnabled(bool(self.devices) and not busy)
         self.apply.setEnabled(bool(self.devices) and not busy)
@@ -482,6 +491,8 @@ class Window(QWidget):
             self.apply.setFocus()
         elif self.pages.currentIndex() == 3:
             self.stick_read.setFocus()
+        elif self.pages.currentIndex() == 5:
+            self.motor_panel.all.setFocus()
         else:
             self.read_settings.setFocus()
 
@@ -557,6 +568,21 @@ class Window(QWidget):
         self.show_device()
         self.worker.start()
 
+    def start_motor_test(self, levels):
+        if self.worker is not None or not self.devices:
+            return
+        self.worker = MotorTest(self.device_box.currentData(), levels, self)
+        self.worker.result.connect(lambda ok, text: self.motor_panel.result.setText(text))
+        self.worker.finished.connect(self.applied)
+        self.motor_panel.result.setText('Testing selected motors…')
+        self.show_device()
+        self.motor_panel.stop.setFocus()
+        self.worker.start()
+
+    def stop_motor_test(self):
+        if isinstance(self.worker, MotorTest):
+            self.worker.cancel.set()
+
     def button_test_report(self, value):
         if value['event'] == 'buttons':
             self.test_seen.update(value['pressed'])
@@ -630,6 +656,7 @@ class Window(QWidget):
 
     def closeEvent(self, event):
         if self.worker is not None:
+            self.stop_motor_test()
             event.ignore()
             self.result_label.setText('Finishing the controller operation before closing…')
             self.worker.finished.connect(self.close)

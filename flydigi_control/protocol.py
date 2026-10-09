@@ -155,7 +155,20 @@ def test_mode(enable: bool) -> bytes:
 
 def rumble(strong: int, weak: int) -> bytes:
     """Strong is the low-frequency (left) motor, weak the high-frequency (right) one; 0-255."""
-    return command(CMD_RUMBLE, 0x06, _clamp_byte(strong), _clamp_byte(weak), 0x00, 0x00)
+    return rumble_motors(_clamp_byte(strong), _clamp_byte(weak), 0, 0)
+
+
+def rumble_motors(grip_left: int, grip_right: int, trigger_left: int, trigger_right: int) -> bytes:
+    """Replace all four levels; this vendor command has a zero trailer, no CRC.
+
+    Matches Space Station's NewXInput vibration command and SDL's V2 packet.
+    The transport adds the unnumbered report ID. No duration is sent onboard;
+    the caller must send a stop, including after an interrupted test.
+    """
+    levels = (grip_left, grip_right, trigger_left, trigger_right)
+    if any(type(v) is not int or not 0 <= v <= 255 for v in levels):
+        raise ValueError('Motor levels must be integers from 0 to 255')
+    return (MAGIC + bytes([CMD_RUMBLE, 6, *levels, 0])).ljust(PACKET_SIZE, b'\0')
 
 
 def _clamp_byte(value: int) -> int:
