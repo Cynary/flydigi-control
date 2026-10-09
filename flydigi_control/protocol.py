@@ -62,13 +62,15 @@ def command(cmd: int, *args: int) -> bytes:
 
 
 CMD_PROFILE_VERSIONS = 0xA1  # which on-board profile is active
+CMD_MAPPING_READ = 0xA3
+CMD_PROFILE_SAVE = 0xA6
 CMD_LED_READ = 0xA7
 CMD_LED_WRITE_START = 0xA8
 CMD_LED_WRITE_PACK = 0xA9
 CMD_LED_TEST_COLOR = 0xF5
 BLOB_PACKET_SIZE = 20
-# There is deliberately no "save" command (0xA6): LED settings are applied live and never written
-# to the controller's memory. 0x1F (firmware mode), 0xFD (full reset) and 0xFE must never be sent.
+# 0xA6 saves the active profile, not just LEDs. Only the guarded persistence
+# transaction should use it. Firmware/reset commands remain unsupported.
 
 
 def request(cmd: int, *payload: int) -> bytes:
@@ -78,6 +80,27 @@ def request(cmd: int, *payload: int) -> bytes:
 
 def profile_versions_request() -> bytes:
     return request(CMD_PROFILE_VERSIONS)
+
+
+def profile_state(reply: bytes) -> tuple[int, tuple[int, ...]]:
+    if len(reply) != 32 or reply[:3] != MAGIC + bytes([CMD_PROFILE_VERSIONS]):
+        raise ValueError('Invalid profile versions reply')
+    # Do not alias Switch profiles for a persistent write.
+    if reply[5] > 3:
+        raise ValueError('Persistent lighting requires a PC-mode profile')
+    return reply[5], struct.unpack_from('<4H', reply, 6)
+
+
+def mapping_read_request(profile: int) -> bytes:
+    if type(profile) is not int or not 0 <= profile <= 3:
+        raise ValueError('Invalid profile')
+    return request(CMD_MAPPING_READ, profile, BLOB_PACKET_SIZE)
+
+
+def profile_save_request(version: int) -> bytes:
+    if type(version) is not int or not 0 <= version <= 65535:
+        raise ValueError('Invalid profile version')
+    return request(CMD_PROFILE_SAVE, version & 255, version >> 8)
 
 
 def active_profile(reply: bytes) -> int:

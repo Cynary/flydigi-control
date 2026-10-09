@@ -6,7 +6,7 @@ try:
     from PySide6.QtCore import Qt
     from PySide6.QtGui import QKeyEvent
     from PySide6.QtWidgets import QApplication
-    from flydigi_control.ui import Window
+    from flydigi_control.ui import Window, ApplyColor
     QT_AVAILABLE = True
 except ImportError:
     QT_AVAILABLE = False
@@ -104,6 +104,19 @@ class UITests(unittest.TestCase):
         self.window.feature_values = {'turbo': {'supported': True, 'enabled': True}}
         self.window.device_changed()
         self.assertEqual(self.window.feature_values, {})
+
+    def test_apply_uses_guarded_save_and_reports_failure(self):
+        worker = ApplyColor('/dev/hidraw99', 5, [(255, 0, 255)], 30, 15)
+        results = []
+        worker.result.connect(lambda ok, message: results.append((ok, message)))
+        with patch('flydigi_control.ui.ConfigurationDevice') as device, \
+             patch('flydigi_control.ui.apply_lighting') as apply:
+            worker.run()
+            self.assertIs(apply.call_args.args[0], device.return_value.__enter__.return_value)
+            self.assertTrue(results[-1][0])
+            apply.side_effect = RuntimeError('Save not confirmed')
+            worker.run()
+            self.assertEqual(results[-1], (False, 'Save not confirmed'))
 
 
 if __name__ == '__main__':

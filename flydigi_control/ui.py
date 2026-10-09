@@ -12,7 +12,8 @@ from PySide6.QtWidgets import (QApplication, QWidget, QLabel, QPushButton,
     QVBoxLayout, QHBoxLayout, QGridLayout, QSlider, QComboBox, QStackedWidget)
 from .transport import discover, ConfigurationDevice
 from .navigation import GamepadNavigation
-from .lighting import PALETTE, GRADIENT, make_blob
+from .lighting import PALETTE, GRADIENT
+from .persistence import apply_lighting
 
 
 class ApplyColor(QThread):
@@ -26,17 +27,9 @@ class ApplyColor(QThread):
     def run(self):
         try:
             with ConfigurationDevice(self.path) as device:
-                profile, original = device.read_lighting()
                 folder = Path(os.environ.get('XDG_STATE_HOME', str(Path.home() / '.local/state'))) / 'flydigi-control'
-                folder.mkdir(parents=True, exist_ok=True)
-                backup = folder / ('lighting-' + str(time.time_ns()) + '.json')
-                backup.write_text(json.dumps({'profile': profile, 'blob': original.hex()}, indent=2))
-                blob = make_blob(original, self.mode, self.colors, self.brightness, self.period)
-                device.write_lighting(profile, blob)
-                actual_profile, actual = device.read_lighting()
-                if actual_profile != profile or actual != blob:
-                    raise RuntimeError('Controller lighting readback differs from the request; original settings are backed up.')
-            self.result.emit(True, 'Lighting applied and read back. Temporary: turning the controller off restores saved lights.')
+                apply_lighting(device, self.mode, self.colors, self.brightness, self.period, folder)
+            self.result.emit(True, 'Lighting saved to the controller and read back.')
         except (OSError, ValueError, RuntimeError) as error:
             self.result.emit(False, str(error))
 
@@ -214,7 +207,7 @@ class Window(QWidget):
         self.off.clicked.connect(lambda: self.apply_color(off=True))
         row.addWidget(self.off)
         layout.addLayout(row)
-        self.result_label = self.label(layout, 'Choose a color and apply it to the connected controller.', 'muted')
+        self.result_label = self.label(layout, 'Apply saves the lights to the active controller profile. Its mappings are kept.', 'muted')
         self.result_label.setWordWrap(True)
         layout.addStretch()
         settings_page = QWidget()

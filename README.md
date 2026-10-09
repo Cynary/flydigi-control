@@ -6,8 +6,10 @@ from Big Picture.
 
 **Work in progress.** All extra buttons have been captured from a Vader 5 Pro,
 and the corrected lighting colors have been checked on the controller. Steam
-receives M1–M4, C/Z, Fn and Turbo with the SDL fork. LM/RM Steam events, bindings,
-reconnects and animation checks remain before release. The tested receiver does
+receives all ten extra buttons with the SDL fork, and assigned actions and
+reconnect navigation have been checked. Persistence, the remaining animation
+checks and the expanded settings are still in development. A recent kernel panic
+also keeps the image release on hold. The tested receiver does
 not advertise USB remote wake. See [validation](docs/VALIDATION.md).
 
 The app provides color and brightness controls, plus switches for the controller's
@@ -15,6 +17,9 @@ own Turbo function and Fn profile shortcuts. It talks to the configuration HID
 interface. Gameplay input stays with Steam Input; this app does not create a
 second virtual controller or detach xpad. Its Native Steam Input permission
 switch lets Steam acquire the extended interface.
+
+The [official-app coverage checklist](docs/FEATURES.md) tracks remaining settings,
+independent motor control and diagnostic tests.
 
 ## Run
 
@@ -27,8 +32,9 @@ python3 -m flydigi_control
 Add the installed `flydigi-control` executable as a non-Steam game to launch it
 from Big Picture. Use the D-pad or left stick to navigate, A to select and B to
 exit. Keyboard navigation also works. Lighting modes include Steady, Breathing,
-Gradient, Flow and Off, with RGB, brightness and cycle controls. Changes are
-temporary; controller power-off restores its stored lighting. See
+Gradient, Flow and Off, with RGB, brightness and cycle controls. The installed release applies temporary lighting. This branch contains an
+onboard-saving candidate that backs up the active profile and checks that its
+mappings stay intact; controller power-cycle validation is still pending. See
 [lighting details and validation](docs/LIGHTING.md).
 
 Command-line checks:
@@ -58,8 +64,7 @@ That is the input path used here.
 Steam’s bundled SDL driver exposes the paddles, C/Z, LM/RM and Fn. Our
 [SDL fork](https://github.com/Cynary/SDL/tree/vader5-turbo) adds Turbo as a
 separate button. The parser passes captured-report replay tests, and Steam
-receives physical Turbo press and release events. Actual bindings are still
-being validated. The kernel driver proposal also describes
+receives physical Turbo press and release events. All ten extra-button bindings have been verified through a Steam Input action test. The kernel driver proposal also describes
 Steam ignoring its extra evdev controls, so installing that driver alone would
 not meet this project's requirements. See [validation work](docs/VALIDATION.md).
 

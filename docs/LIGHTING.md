@@ -40,11 +40,11 @@ Steady, breathing and gradient uploads passed byte-for-byte readback on hardware
 
 Flow uses the numeric frames from the service’s generic preset, cropped to the LED count reported by the controller. It sets the loop end to the last valid frame. This adaptation still needs a physical animation check; it is not a claim of identical factory lighting.
 
-Each UI upload first saves a backup beneath `~/.local/state/flydigi-control/`. Changes are temporary: no flash-save command is sent. Missing acknowledgements for indexed LED chunks are retried once after a read-only query, followed by whole-configuration verification. A missing acknowledgement is not itself proof that a write failed.
+Each UI upload first saves a backup beneath `~/.local/state/flydigi-control/`. The persistence candidate also backs up the complete active mapping profile and sends one onboard-save command after verifying that the lighting changed and the mappings did not. This candidate is not yet installed or validated across controller power-off. Missing acknowledgements for indexed LED chunks are retried once after a read-only query, followed by whole-configuration verification. A missing acknowledgement is not itself proof that a write failed.
 
 ## Settings persistence
 
-The current application uploads working settings but does not save them onboard.
+The installed application uploads working settings but does not save them onboard. The candidate in this branch implements guarded onboard saving.
 The user confirmed that reconnecting the Vader restores its previous lights.
 Saving the last successfully applied settings is required before release, including
 color, brightness, animation and speed. Turbo, Fn shortcuts and native-mapping
@@ -72,8 +72,13 @@ changing Steam's ownership or input mode during lighting restoration. Settings
 changed on another computer should not be silently overwritten by an old local
 copy.
 
-The kernel-panic investigation is still open. These are source-level findings;
-no new persistence commands or reconnect service have been deployed.
+The kernel-panic investigation is still open; no persistence commands or
+reconnect service have been deployed. A read-only hardware check on firmware
+7.1.5.0 returned the expected 840-byte mapping format 3.2 and matching profile
+versions. The candidate tests cover backup failure, changes to mappings or the
+active profile, lost acknowledgments, unsupported formats and readback failures.
+A lost save acknowledgment is checked through the profile version without
+replaying the write. Successful readback is not power-cycle validation.
 
 ## Evidence locations
 

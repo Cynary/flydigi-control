@@ -50,10 +50,12 @@ class ConfigurationDevice:
     """Lighting, identity, Turbo and Fn profile-hotkey configuration.
 
     hidraw broadcasts reports to each opener. Reading this fd doesn't consume
-    Steam's reports. No test-mode, acquire, reset, profile-switch or flash command
-    is sent. The advisory lock serializes our own configuration clients.
+    Steam's reports. No test-mode, acquire, reset or profile-switch command is
+    sent. Onboard saving is reserved for the guarded persistence transaction.
+    The advisory lock serializes our own configuration clients.
     """
     ALLOWED = {protocol.CMD_INFO, 0x03, 0x10, 0x11, 0x13, protocol.CMD_PROFILE_VERSIONS,
+               protocol.CMD_MAPPING_READ, protocol.CMD_PROFILE_SAVE,
                protocol.CMD_LED_READ, protocol.CMD_LED_WRITE_START,
                protocol.CMD_LED_WRITE_PACK, protocol.CMD_LED_TEST_COLOR}
 
@@ -96,6 +98,10 @@ class ConfigurationDevice:
             raise ValueError('Only Turbo and Fn profile hotkeys are supported')
         if packet[2] == 0x11 and (packet[3:8] != bytes([7, 255, 255, 255, 255]) or packet[8] not in (0, 1)):
             raise ValueError('Only third-party mapping permission may be changed')
+        if packet[2] == protocol.CMD_PROFILE_SAVE and packet != protocol.profile_save_request(int.from_bytes(packet[4:6], 'little')):
+            raise ValueError('Invalid profile-save packet')
+        if packet[2] == protocol.CMD_MAPPING_READ and packet != protocol.mapping_read_request(packet[4]):
+            raise ValueError('Invalid mapping-read packet')
         # Linux hidraw requires a zero report-ID byte for unnumbered reports.
         output = b'\x00' + packet
         if os.write(self.fd, output) != len(output):
@@ -109,7 +115,7 @@ class ConfigurationDevice:
             # including across fd opens. Waiting 600 ms did not clear it;
             # alternating read-only queries did. Never replay a setting write.
             if packet not in (protocol.info_request(), protocol.request(0x03),
-                              protocol.request(0x10)):
+                              protocol.request(0x10), protocol.profile_versions_request()):
                 raise
             primer = protocol.request(0x03 if packet[2] != 0x03 else 0x01)
             try:
@@ -157,6 +163,35 @@ class ConfigurationDevice:
         if reply[5] > 7:
             raise ValueError('Unknown active profile; lighting was not changed')
         return protocol.active_profile(reply)
+
+    def profile_state(self):
+        return protocol.profile_state(self.exchange(protocol.profile_versions_request()))
+
+    def read_mapping(self, profile):
+        """Back up only the already active profile, without selecting another."""
+        if self.profile_state()[0] != profile:
+            raise ValueError('Controller profile changed')
+        list(self._read())
+        self.send(protocol.mapping_read_request(profile))
+        chunks = {}
+        count = None
+        deadline = time.monotonic() + 3
+        while (remaining := deadline - time.monotonic()) > 0:
+            select.select([self.fd], [], [], remaining)
+            for reply in self._read():
+                if len(reply) != 32 or reply[:3] != protocol.MAGIC + bytes([protocol.CMD_MAPPING_READ]):
+                    continue
+                total, index, returned_profile = reply[3:6]
+                if returned_profile != profile or not 1 <= total <= 255 or index >= total or count not in (None, total):
+                    raise ValueError('Inconsistent mapping reply')
+                count = total
+                chunk = bytes(reply[6:26])
+                if index in chunks and chunks[index] != chunk:
+                    raise ValueError('Conflicting mapping reply')
+                chunks[index] = chunk
+                if len(chunks) == count:
+                    return b''.join(chunks[i] for i in range(count))
+        raise TimeoutError('Incomplete mapping backup; nothing was saved')
 
     def read_lighting(self):
         """Read only the active profile: A7 can select the profile it reads."""
