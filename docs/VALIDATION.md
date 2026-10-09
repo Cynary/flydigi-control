@@ -9,10 +9,10 @@ sees the physical controls.
 | --- | --- | --- |
 | M1–M4, C/Z, LM/RM, Fn, Turbo | All ten captured from hardware; patched parser agrees. Steam events confirm M1–M4, C/Z, Fn and Turbo | LM/RM Steam events and an assigned-action test; Turbo reports a short pulse rather than a held state |
 | LEDs | Steady, breathing and gradient configurations pass complete readback; user confirmed corrected colors | Visual animation and brightness/off checks |
-| Steam Input | All ten extra controls accept bindings in Steam's editor. Native/fallback transitions expose one controller and release stale button state | Physical binding delivery and controller reconnect |
-| Couch app | Installed image app launches through its Steam shortcut; user operated the color picker and button test; automated navigation checks pass | Controller-only reconnect/navigation check; navigation polish remains |
+| Steam Input | All ten extra controls accept bindings in Steam's editor. Native/fallback transitions expose one controller and release stale button state | Physical binding delivery |
+| Couch app | Installed image app launches through its Steam shortcut; user operated the color picker and button test; automated navigation checks pass | Off/on recovery confirmed by user; navigation polish remains |
 | Wake | Receiver `37d7:2401` reports `bmAttributes=0x80`, without remote wake; Linux has no device wake control | No supported controller-wake method found; no wake policy is installed |
-| Image | Full candidate built and booted; Steam maps its packaged SDL with no local library override | Remaining physical checks before promoting the public update channel |
+| Image | Earlier candidate built and booted; newer reconnect/battery SDL stage passed all regression suites | New full candidate build/boot and remaining physical checks before promotion |
 
 Lighting changes are deliberately temporary: controller power-off restores its
 stored lighting. Persistence is not implemented through a firmware flash write.
@@ -234,8 +234,7 @@ of the hotplug fix; the earlier mock tests were not proof of the deployed app.
 After correcting that path, a real Linux uinput test added and removed a Steam
 virtual gamepad while the same Qt app stayed open. Its device list changed from
 one handle to two, then back to one, without restart. Settings queries were also
-working after the receiver power-cycle. Physical off/on validation remains the
-next gate. The app records its source path, initialization errors and changes to
+working after the receiver power-cycle. The user subsequently confirmed off/on recovery without restarting the app. The app records its source path, initialization errors and changes to
 focus/device IDs in a bounded local log (256 KiB plus two rotated files); button
 values are not logged there.
 
@@ -243,8 +242,9 @@ The subsequent 60-second physical button test recorded 27,371 raw reports and
 all 27 named button states, including LM, RM, Fn and Turbo, with no missing
 buttons. Steam simultaneously listed exactly one native Vader (style 7). The
 Steam event capture started partway through that test, so this is not yet proof
-of every extra button's Steam action delivery. The off/on navigation and settings
-check remains pending.
+of every extra button's Steam action delivery. The user then confirmed navigation recovered and the raw button test worked
+with the app left open across an off/on cycle. Explicit settings readback was
+not separately described in that reply.
 
 ## Battery and Steam power menu
 
