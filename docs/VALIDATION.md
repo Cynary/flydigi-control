@@ -245,3 +245,20 @@ buttons. Steam simultaneously listed exactly one native Vader (style 7). The
 Steam event capture started partway through that test, so this is not yet proof
 of every extra button's Steam action delivery. The off/on navigation and settings
 check remains pending.
+
+## Battery and Steam power menu
+
+A USB capture during reconnect contained a single 0% reading followed by 40%
+1.164 seconds later. This can explain a spurious low-battery warning, but the
+warning itself and the earlier full indication were not captured together.
+The SDL fork now preserves the first identity-reply battery reading before
+opening the joystick and confirms empty readings after two seconds. Confirmed
+empty readings still report 0%; unknown states are not converted to empty.
+The hardware probe reports 40% from its first observation. Battery levels are
+coarse firmware estimates in 20% steps, not a calibrated capacity measurement.
+
+Steam's **Turn off controller** currently does nothing for this native device:
+its API call generated no USB command during a five-second capture. The examined
+vendor SDK has sleep commands for legacy protocols, but no dedicated NewXInput
+version for this controller. Hold Home for about five seconds to use the
+controller's own shutdown behavior. Remote shutdown remains unsupported.
