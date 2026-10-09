@@ -114,3 +114,31 @@ python3 -m flydigi_control --macros
 
 This reports the active bank and decoded actions. It does not select a different
 profile, execute a macro or write settings.
+
+## PC macro library
+
+Open **PC macro library** from the macro editor. **Save editor draft as a new PC
+copy** stores a complete macro locally; it does not write to the controller.
+Choose a saved macro and **Load into the selected button’s draft** to reuse it.
+The target is the button already selected in the editor, not the button used
+when the PC copy was made. Review the draft and save it to the controller only
+when ready. A full controller bank leaves the draft unchanged and reports why
+the macro cannot fit.
+
+Each save creates a new copy. To rename or modify a stored macro, load it, edit
+it, save a new PC copy, then delete the old copy if wanted. Deleting asks for a
+second confirmation and affects only the PC file. The library can be browsed
+without a receiver; loading into a controller draft requires reading its active
+profile first.
+
+Files live in `~/.local/share/flydigi-control/macros/` (or beneath
+`$XDG_DATA_HOME`). Copy a library's `.json` files into this folder on another PC,
+then choose **Refresh library** to import them. These are Flydigi Control's
+versioned JSON files, not Space Station's file format. Bad or unsupported files
+are reported and left untouched. This library does not yet import vendor files
+or use Flydigi's online sharing service.
+
+The loader validates action types, timing, names and paired press/release events;
+a loaded macro does not execute on the PC. File names are independent of macro
+names, and files are saved with private permissions. Hardware uploads continue
+through the existing backup and readback procedure.

@@ -80,6 +80,7 @@ class MacroPanel(QWidget):
         layout = QVBoxLayout(self)
         heading = QHBoxLayout()
         title = QLabel('Onboard macros'); title.setObjectName('title'); heading.addWidget(title)
+        self.library = QPushButton('PC macro library'); heading.addWidget(self.library)
         self.back = QPushButton('Back to settings'); heading.addWidget(self.back); layout.addLayout(heading)
         row = QHBoxLayout()
         self.read = QPushButton('Read active profile'); row.addWidget(self.read)

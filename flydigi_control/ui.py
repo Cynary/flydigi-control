@@ -21,6 +21,7 @@ from .curve_ui import CurvePanel
 from .profile_ui import ProfilePanel, ProfileOperation
 from .macro_ui import MacroPanel, MacroOperation, MacroRecording
 from .name_ui import NamePanel
+from .macro_library_ui import MacroLibraryPanel
 from .hardware_ui import HardwarePanel, HardwareOperation
 from .button_ui import ButtonMappingPanel
 from .motion_ui import MotionPanel
@@ -405,6 +406,11 @@ class Window(QWidget):
         self.name_panel.accepted.connect(self.accept_macro_name)
         self.name_panel.cancelled.connect(lambda:self.pages.setCurrentIndex(12))
         self.pages.addWidget(self.name_panel)
+        self.macro_library = MacroLibraryPanel(self.macro_panel)
+        self.macro_library.back.clicked.connect(lambda:self.pages.setCurrentIndex(12))
+        self.macro_library.draft_loaded.connect(lambda:self.pages.setCurrentIndex(12))
+        self.macro_panel.library.clicked.connect(self.open_macro_library)
+        self.pages.addWidget(self.macro_library)
         self.macro_settings = QPushButton('Onboard macros')
         self.macro_settings.clicked.connect(lambda: self.pages.setCurrentIndex(12))
         self.pages.widget(1).layout().addWidget(self.macro_settings)
@@ -416,7 +422,7 @@ class Window(QWidget):
                          self.analog_tab, self.analog_start, self.output_device, self.motor_tab, *self.motor_panel.controls,
                          self.stick_response, *self.curve_panel.controls,
                          self.trigger_settings,self.grip_settings,*self.trigger_panel.controls,*self.grip_panel.controls,
-                         self.hardware_settings,*self.hardware_panel.controls,self.button_settings,*self.button_panel.controls,self.motion_settings,*self.motion_panel.controls,self.macro_settings,*self.macro_panel.controls,*self.name_panel.controls]
+                         self.hardware_settings,*self.hardware_panel.controls,self.button_settings,*self.button_panel.controls,self.motion_settings,*self.motion_panel.controls,self.macro_settings,*self.macro_panel.controls,*self.name_panel.controls,self.macro_panel.library,*self.macro_library.controls]
         for control in self.controls:
             control.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
         try:
@@ -530,6 +536,8 @@ class Window(QWidget):
         self.button_panel.set_available(bool(self.devices) and not busy)
         self.motion_panel.set_available(bool(self.devices) and not busy)
         self.macro_panel.set_available(bool(self.devices) and not busy)
+        self.macro_panel.library.setEnabled(not busy)
+        self.macro_library.set_busy(busy)
         self.test_start.setEnabled(bool(self.devices) and not busy)
         self.analog_start.setEnabled(bool(self.devices) and not busy)
         self.output_device.setEnabled(not busy and self.navigation is not None)
@@ -650,6 +658,12 @@ class Window(QWidget):
         if self.worker is not None or self.macro_panel.snapshot is None:return
         self.name_panel.set_value(self.macro_panel.name)
         self.pages.setCurrentIndex(13);self.name_panel.keys[0].setFocus()
+
+    def open_macro_library(self):
+        if self.worker is not None:return
+        self.macro_library.reload()
+        self.pages.setCurrentIndex(14)
+        self.macro_library.items.setFocus()
 
     def accept_macro_name(self,name):
         if self.macro_panel.snapshot is not None:

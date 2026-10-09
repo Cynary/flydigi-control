@@ -60,7 +60,7 @@ calibration, rebound suppression, precision, center sensitivity and sleep contro
 Its packet and UI checks pass, but these new commands have not been sent to hardware.
 [Protocol details and remaining checks](HARDWARE-SETTINGS.md).
 
-2026-10-09: The `onboard-settings` candidate passes 177 protocol, persistence,
+2026-10-09: The `onboard-settings` candidate passes 186 protocol, persistence,
 diagnostic and Qt tests on the K17. Offscreen previews of the stick settings and
 analog/motor/response/trigger/grip/global-settings/button/motion-mapping/macro pages were inspected, using simulated input or
 the saved read-only profile. Curve samples
@@ -347,3 +347,14 @@ private snapshot files, failure exit codes and exclusion of battery/ownership.
 The K17 ran all 177 tests, including the Qt tests. The receiver is absent, so
 this is tooling validation; no onboard save or physical power-cycle result is
 claimed. See [the persistence procedure](LIGHTING.md#checking-persistence-without-restoring-anything).
+
+### PC macro library
+
+The candidate now saves macros to private, versioned JSON files and loads them
+into the editor for the selected target button. Nine new tests cover file
+round-trips, validation, invalid-file reporting, path handling, offline browsing,
+controller navigation, bank-capacity rejection and confirmation before deleting
+a PC copy. All 186 tests pass on the K17, including the Qt tests. The populated
+library page was rendered offscreen at 1280×1080 and inspected. These operations
+send no controller commands. Vendor-file conversion and online sharing remain
+unimplemented; physical macro activation and persistence are still unverified.

@@ -522,5 +522,80 @@ class UITests(unittest.TestCase):
 
 
 
+    def test_pc_macro_library_roundtrip_uses_selected_target_and_never_writes(self):
+        import tempfile
+        from pathlib import Path
+        from test_macro_bank import empty_bank, sample
+        from test_profile_controls import profile
+        from flydigi_control import macro_library
+        editor = self.window.macro_panel; panel = self.window.macro_library
+        with tempfile.TemporaryDirectory() as directory:
+            panel.folder = Path(directory)
+            editor.set_available(True)
+            editor.load(dict(mapping=profile(), macros=empty_bank(), profile=0))
+            editor.source.setCurrentIndex(19)
+            name = macro_library.save_copy(directory, sample(16))
+            self.window.open_macro_library()
+            self.assertEqual(panel.items.currentData(), name)
+            panel.load.setFocus(); self.press(Qt.Key.Key_Return)
+            self.assertEqual(editor.macro().key, 19)
+            self.assertEqual(editor.macro().actions, sample().actions)
+            self.assertEqual(editor.snapshot['macros'], empty_bank())
+            self.assertIsNone(self.window.worker)
+            self.assertEqual(self.window.pages.currentIndex(), 12)
+            self.window.open_macro_library()
+            panel.save.click()
+            self.assertEqual(len(macro_library.entries(directory)[0]), 2)
+            panel.delete.click()
+            self.assertEqual(len(macro_library.entries(directory)[0]), 2)
+            panel.delete.click()
+            self.assertEqual(len(macro_library.entries(directory)[0]), 1)
+            for _ in range(3): self.app.processEvents()
+            self.assertLessEqual(self.window.minimumSizeHint().height(), 1080)
+            panel.back.setFocus(); self.press(Qt.Key.Key_Return)
+            self.assertEqual(self.window.pages.currentIndex(), 12)
+
+    def test_pc_library_available_offline_but_busy_and_missing_snapshot_block_loading(self):
+        import tempfile
+        from pathlib import Path
+        from test_macro_bank import sample
+        from flydigi_control import macro_library
+        panel = self.window.macro_library
+        with tempfile.TemporaryDirectory() as directory:
+            panel.folder = Path(directory)
+            macro_library.save_copy(directory, sample())
+            self.window.show_device(); self.window.open_macro_library()
+            self.assertTrue(self.window.macro_panel.library.isEnabled())
+            self.assertFalse(panel.load.isEnabled())
+            self.assertFalse(panel.save.isEnabled())
+            self.assertTrue(panel.delete.isEnabled())
+            panel.set_busy(True)
+            panel.delete_copy(); panel.save_draft(); panel.load_draft()
+            self.assertEqual(len(macro_library.entries(directory)[0]), 1)
+            self.assertFalse(panel.delete.isEnabled())
+            self.assertIsNone(self.window.worker)
+
+    def test_pc_library_rejects_bank_overflow_without_changing_draft(self):
+        import tempfile
+        from pathlib import Path
+        from test_macro_bank import sample, empty_bank
+        from test_profile_controls import profile
+        from flydigi_control.macro_bank import replace_macro
+        from flydigi_control import macro_library
+        editor = self.window.macro_panel; panel = self.window.macro_library
+        with tempfile.TemporaryDirectory() as directory:
+            panel.folder = Path(directory)
+            bank = empty_bank()
+            for key in range(10): bank = replace_macro(bank, sample(key))
+            editor.set_available(True); editor.load(dict(mapping=profile(), macros=bank, profile=0))
+            editor.source.setCurrentIndex(18)
+            old = editor.macro()
+            macro_library.save_copy(directory, sample())
+            self.window.open_macro_library(); panel.load.click()
+            self.assertEqual(editor.macro(), old)
+            self.assertIn('10 macros', panel.result.text())
+            self.assertIsNone(self.window.worker)
+
+
 if __name__ == '__main__':
     unittest.main()
