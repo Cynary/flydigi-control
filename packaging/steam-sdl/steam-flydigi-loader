@@ -1,0 +1,31 @@
+#!/bin/bash
+set -euo pipefail
+unset DEBUGGER
+root=/usr/lib/moonmachine/steam-sdl
+# steam.sh supplies its real executable followed by the original arguments.
+# Unknown executables or library revisions must run without the replacement.
+executable=${1:-}
+original=$(dirname -- "$executable")/libSDL3.so.0
+if [[ $(basename -- "$executable") != steam || ! -f "$original" ]]; then
+    exec "$@"
+fi
+if ! expected=$(cat "$root/steam-sdl.sha256") || ! actual=$(sha256sum -- "$original"); then
+    echo "Flydigi: compatibility check unavailable; using Steam’s driver." >&2
+    exec "$@"
+fi
+if [[ ${actual%% *} != "$expected" ]]; then
+    echo 'Flydigi: Steam SDL changed; using Steam’s bundled controller driver.' >&2
+    exec "$@"
+fi
+for file in "$root/preload.so" "$root/lib32/libSDL3.so.0"; do
+    if [[ ! -r "$file" ]]; then
+        echo 'Flydigi: replacement library unavailable; using Steam’s driver.' >&2
+        exec "$@"
+    fi
+done
+export FLYDIGI_SAVED_PRELOAD="${LD_PRELOAD-}"
+export FLYDIGI_SAVED_LIBRARY_PATH="${LD_LIBRARY_PATH-}"
+export FLYDIGI_SDL_LIBRARY="$root/lib32/libSDL3.so.0"
+export LD_LIBRARY_PATH="$root/lib32${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
+export LD_PRELOAD="$root/preload.so:$FLYDIGI_SDL_LIBRARY${LD_PRELOAD:+:$LD_PRELOAD}"
+exec "$@"

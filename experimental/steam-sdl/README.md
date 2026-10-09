@@ -19,3 +19,17 @@ env FLYDIGI_SDL_LIBRARY=/absolute/patched-SDL.so FLYDIGI_SAVED_PRELOAD= \
 ```
 
 This isolated test passes on the K17. The loader is running in Steam on the K17: process maps show only the replacement SDL in the 32-bit client, steamwebhelper retains its bundled SDL, and Steam’s own controller mapping contains `misc1:b20`. Its controller capability mask gained the corresponding extra-button bit. The earlier preload-only trial allowed Steam to open its original SDL as well, so seeing the patched library in process maps alone is insufficient proof that its driver is used. Physical Turbo press and release events are now confirmed in Steam’s controller-state feed. Actual bindings, reconnect behavior and updater compatibility remain release gates. Tests also cover explicit loads into an isolated namespace, which the initial preload-only experiment missed. This is not installed by the image packaging script.
+
+
+`packaging/steam-sdl/install.py` now stages the candidate library, loader and
+Gaming Mode launchers into an image root. It does not alter the running session.
+The session hook preserves the distribution's Steam arguments and OpenGamepadUI
+wrapper. The launcher checks the original 32-bit SDL hash on every start and
+falls back to Steam's driver after an unknown update or missing build artifact.
+Set `FLYDIGI_STEAM_DISABLE=1` before starting Gaming Mode to bypass it. An existing
+`DEBUGGER` also takes precedence. Explicit legacy `STEAMCMD` overrides can bypass
+the session hook and must choose `steam-flydigi` to use the replacement.
+
+The replacement needs to be rebuilt against Steam's SDL revision and physically
+revalidated before updating the approved hash. Never update the hash just to
+silence a mismatch. The candidate is not yet released in a boot-tested image.

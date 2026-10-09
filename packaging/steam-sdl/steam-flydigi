@@ -1,0 +1,7 @@
+#!/bin/bash
+# Use Steam's supported debugger launcher hook, only for this Steam invocation.
+if [[ ${FLYDIGI_STEAM_DISABLE:-0} == 1 || -n ${DEBUGGER:-} ]]; then
+    exec /usr/bin/steam "$@"
+fi
+export DEBUGGER=/usr/libexec/steam-flydigi-loader
+exec /usr/bin/steam "$@"
