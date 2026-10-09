@@ -420,6 +420,7 @@ class Window(QWidget):
         self.profile_selection.backup.clicked.connect(lambda:self.profile_selection_operation(backup_only=True))
         self.profile_selection.requested.connect(lambda:self.profile_selection_operation(switch=True))
         self.profile_selection.restore_requested.connect(lambda:self.profile_selection_operation(restore=True))
+        self.profile_selection.factory_requested.connect(lambda:self.profile_selection_operation(factory=True))
         self.pages.addWidget(self.profile_selection)
         self.macro_settings = QPushButton('Onboard macros')
         self.macro_settings.clicked.connect(lambda: self.pages.setCurrentIndex(12))
@@ -668,14 +669,20 @@ class Window(QWidget):
         self.show_device()
         self.worker.start()
 
-    def profile_selection_operation(self, switch=False, backup_only=False, restore=False):
+    def profile_selection_operation(self, switch=False, backup_only=False, restore=False, factory=False):
         panel = self.profile_selection
-        mutation = switch or restore
+        mutation = switch or restore or factory
         if self.worker is not None or not self.devices or (mutation and panel.snapshot is None):return
         if restore and panel.restore_source() is None:return
+        source = panel.restore_source() if restore else None
+        if factory:
+            from .factory_profile import source_for
+            try: source = source_for(panel.snapshot)
+            except (OSError,ValueError) as error:
+                panel.result.setText(str(error)); return
         target = panel.target.currentIndex() if switch else None
         self.worker = ProfileSelectionOperation(self.device_box.currentData(), panel.snapshot, target, backup_only, self,
-                                                restore_source=panel.restore_source() if restore else None)
+                                                restore_source=source)
         def values(data):
             if mutation:
                 self.device_changed()  # Invalidate drafts for the old profile.
@@ -688,7 +695,7 @@ class Window(QWidget):
             panel.result.setText(text)
         self.worker.result.connect(result)
         self.worker.finished.connect(self.applied)
-        panel.result.setText('Reading and backing up before profile selection…' if switch else 'Reading active profile…')
+        panel.result.setText('Reading and backing up before profile selection…' if switch else 'Backing up and restoring the active profile…' if mutation else 'Reading active profile…')
         self.show_device(); self.worker.start()
 
     def rename_macro(self):

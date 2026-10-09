@@ -736,5 +736,30 @@ class UITests(unittest.TestCase):
             panel.clear();self.assertFalse(panel.restore.isEnabled())
 
 
+    def test_factory_profile_confirmation_is_cleared_on_disconnect(self):
+        from test_factory_profile import ready_controller
+        from flydigi_control.persistence_check import snapshot
+        panel=self.window.profile_selection
+        panel.set_available(True);panel.load(snapshot(ready_controller()))
+        self.window.pages.setCurrentIndex(15)
+        self.assertTrue(panel.factory.isEnabled())
+        requests=[];panel.factory_requested.connect(lambda:requests.append(True))
+        panel.factory.setFocus();self.press(Qt.Key.Key_Return)
+        self.assertEqual(requests,[])
+        self.assertIn('clear its macros',panel.result.text())
+        self.window.pages.setCurrentIndex(1);self.app.processEvents()
+        self.assertFalse(panel.factory_pending)
+        self.window.pages.setCurrentIndex(15);panel.confirm_factory()
+        panel.set_available(False);panel.set_available(True)
+        self.assertFalse(panel.factory_pending)
+        panel.factory.setFocus();self.press(Qt.Key.Key_Return)
+        self.assertEqual(requests,[])
+        self.press(Qt.Key.Key_Return);self.assertEqual(requests,[True])
+        self.assertIsNone(self.window.worker)
+        panel.clear();self.assertFalse(panel.factory.isEnabled())
+        self.app.processEvents()
+        self.assertLessEqual(self.window.minimumSizeHint().height(),1080)
+
+
 if __name__ == '__main__':
     unittest.main()

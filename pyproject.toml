@@ -15,3 +15,6 @@ flydigi-control = "flydigi_control.__main__:main"
 
 [tool.setuptools.packages.find]
 include = ["flydigi_control*"]
+
+[tool.setuptools.package-data]
+flydigi_control = ["factory_vader5.json"]

@@ -60,7 +60,7 @@ calibration, rebound suppression, precision, center sensitivity and sleep contro
 Its packet and UI checks pass, but these new commands have not been sent to hardware.
 [Protocol details and remaining checks](HARDWARE-SETTINGS.md).
 
-2026-10-09: The `onboard-settings` candidate passes 218 protocol, persistence,
+2026-10-09: The `onboard-settings` candidate passes 224 protocol, persistence,
 diagnostic and Qt tests on the K17. Offscreen previews of the stick settings and
 analog/motor/response/trigger/grip/global-settings/button/motion-mapping/macro pages were inspected, using simulated input or
 the saved read-only profile. Curve samples
@@ -437,3 +437,22 @@ The renderer explicitly shows it only for Vader 4 (`f4`). We therefore keep it
 read-only on Vader 5 rather than adding a control the official app does not offer.
 Firmware behavior, off/on persistence and USB polling measurements still need
 hardware. The added reference test passes; it does not replace those tests.
+
+### Active-profile factory restore
+
+2026-10-09: The offline profile reference harness generated mapping, LED and
+macro bytes for all four profiles through the vendor SDK. Mapping output was
+1680 bytes with 840 trailing FF bytes, while the earlier hardware capture
+reported 840 bytes. The candidate restores only that observed extent and
+rejects other firmware/geometries. It does not send the vendor's global reset
+command or select another profile.
+
+All 224 tests pass on the K17, including all four reference profiles, clearing
+an existing macro, restoring the pre-reset backup, unchanged global settings,
+stale-state rejection, and controller-key confirmation/reset cancellation. The
+confirmation page was rendered and inspected at 1280×1080. Factory data was also
+verified in both the built Python wheel and the image install tree.
+
+The app, controller and booted image remain unchanged. Physical reset/undo,
+settings retention and motor verification are still pending. This feature is
+not included in the earlier unpublished full-image build.

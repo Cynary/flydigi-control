@@ -1,4 +1,4 @@
-"""Four PC profiles; no factory reset or implicit saving of editor drafts."""
+"""Four PC profiles, verified backups and explicit profile restoration."""
 import os
 from pathlib import Path
 from PySide6.QtCore import QThread, Signal
@@ -7,7 +7,7 @@ from .persistence_check import snapshot
 from .persistence import _backup
 from .profiles import select_profile
 from .transport import ConfigurationDevice
-from . import profile_restore
+from . import profile_restore, factory_profile
 
 
 class ProfileSelectionOperation(QThread):
@@ -41,11 +41,12 @@ class ProfileSelectionOperation(QThread):
 class ProfileSelectionPanel(QWidget):
     requested = Signal()
     restore_requested = Signal()
+    factory_requested = Signal()
 
     def __init__(self):
         super().__init__()
         self.snapshot = None; self.available = False; self.pending = False
-        self.restore_pending = False; self.sources = {}
+        self.restore_pending = False; self.factory_pending = False; self.sources = {}
         self.folder = Path(os.environ.get('XDG_STATE_HOME', str(Path.home()/'.local/state'))) / 'flydigi-control'
         layout = QVBoxLayout(self); heading = QHBoxLayout(); layout.addLayout(heading)
         title = QLabel('Onboard profiles'); title.setObjectName('title'); heading.addWidget(title)
@@ -65,12 +66,14 @@ class ProfileSelectionPanel(QWidget):
         self.preview = QLabel('Choose a backup to review profile restoration.'); self.preview.setWordWrap(True); layout.addWidget(self.preview)
         self.restore = QPushButton('Restore profile from backup'); layout.addWidget(self.restore)
         self.restore.clicked.connect(self.confirm_restore)
+        self.factory = QPushButton('Restore active profile defaults'); layout.addWidget(self.factory)
+        self.factory.clicked.connect(self.confirm_factory)
         self.result = QLabel(); self.result.setWordWrap(True); layout.addWidget(self.result)
         note = QLabel('Switching or restoring can change buttons, LEDs and stick behavior immediately.\n'
                       'Both discard unsaved editor drafts and back up the current controller settings first.\n'
                       'Selecting uses an existing profile. Restoring replaces its contents and saves them onboard.')
         note.setWordWrap(True); layout.addWidget(note); layout.addStretch()
-        self.controls = [self.back, self.read, self.target, self.select, self.backup,self.backups,self.refresh,self.restore]
+        self.controls = [self.back, self.read, self.target, self.select, self.backup,self.backups,self.refresh,self.restore,self.factory]
         self.set_available(False)
 
     def load(self, value):
@@ -92,13 +95,32 @@ class ProfileSelectionPanel(QWidget):
                 compatible = True
             except ValueError: pass
         self.restore.setEnabled(compatible)
+        factory_ready = False
+        if ready:
+            try:
+                factory_profile.source_for(self.snapshot)
+                factory_ready = True
+            except (OSError, ValueError): pass
+        self.factory.setEnabled(factory_ready)
+        if not available:self.cancel_confirmations()
+
+    def cancel_confirmations(self):
+        self.pending = False; self.factory_pending = False; self.restore_pending = False
+        self.factory.setText('Restore active profile defaults')
+        self.restore.setText('Restore profile from backup')
+        self.select.setText('Use selected profile')
 
     def reset_confirmation(self, unused=None):
-        self.pending = False; self.select.setText('Use selected profile'); self.set_available(self.available)
+        self.cancel_confirmations(); self.set_available(self.available)
+
+    def hideEvent(self, event):
+        self.cancel_confirmations()
+        super().hideEvent(event)
 
     def confirm(self):
         if not self.available or self.snapshot is None or self.target.currentIndex() == self.snapshot['profile']: return
         if not self.pending:
+            self.cancel_confirmations()
             self.pending = True; self.select.setText('Confirm profile switch')
             self.result.setText('Save any editor drafts first. Press Confirm to back up the current settings and switch.')
         else:
@@ -129,6 +151,7 @@ class ProfileSelectionPanel(QWidget):
         self.result.setText(f'{len(self.sources)} profile {"backup" if len(self.sources)==1 else "backups"} found; {skipped} other or unreadable files skipped.')
 
     def review_restore(self, unused=None):
+        self.factory_pending = False; self.factory.setText('Restore active profile defaults')
         self.restore_pending = False; self.restore.setText('Restore profile from backup')
         if self.snapshot is None or self.restore_source() is None:
             self.preview.setText('Read the active profile and choose a backup to review restoration.')
@@ -144,7 +167,22 @@ class ProfileSelectionPanel(QWidget):
     def confirm_restore(self):
         if not self.restore.isEnabled():return
         if not self.restore_pending:
+            self.cancel_confirmations()
             self.restore_pending = True; self.restore.setText('Confirm restore and save')
             self.result.setText('Use only a backup from this same controller. This replaces the active profile and discards editor drafts; current contents are backed up first.')
         else:
             self.restore_pending = False; self.restore_requested.emit()
+
+    def confirm_factory(self):
+        if not self.factory.isEnabled():return
+        if not self.factory_pending:
+            try:
+                profile_restore.preview(factory_profile.source_for(self.snapshot),self.snapshot)
+            except (OSError,ValueError) as error:
+                self.result.setText(str(error));return
+            self.cancel_confirmations()
+            self.factory_pending = True; self.factory.setText('Confirm reset and save')
+            self.result.setText(f'Reset Profile {self.snapshot["profile"]+1}: restore default buttons, sticks, triggers, motion and lighting; clear its macros. '
+                                'Current settings are backed up first. Global settings and the other profiles are not reset.')
+        else:
+            self.factory_pending = False; self.factory_requested.emit()

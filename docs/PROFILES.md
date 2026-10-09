@@ -63,3 +63,23 @@ backup to undo it, version handling, lost acknowledgments, incompatibility,
 stale state, failed backup/readback, file bounds and controller-operated review.
 All 207 tests pass on the K17. The restored-state tests use a simulated device;
 physical restore and retention after power-off still require validation.
+
+## Restore the active profile's defaults
+
+The candidate also has **Restore active profile defaults**. Its confirmation
+names the active profile and explains that it will replace buttons, stick and
+trigger settings, motion settings and lighting, and clear that profile's macros.
+It backs up the current profile in the ordinary restore format first, so the
+backup can be selected to undo the reset. Global settings, Steam ownership and
+other profiles are not reset. The operation saves the new profile onboard.
+
+The defaults come from Space Station 4.2.0.9's Vader 5 data, converted by the
+[reference harness](../experimental/profile-reference/README.md). They are
+restricted to device type 130, firmware 7.1.5.0, the observed 840-byte mapping
+format, 320-byte lighting and version-1 macro bank. Other configurations leave
+the reset button disabled. This deliberately does not send the vendor SDK's
+additional FF mapping padding beyond the controller's reported profile size.
+
+This is still an uninstalled candidate. Automated checks cover every preset,
+macro removal, backups and undo, stale snapshots and confirmation cancellation.
+A physical reset/undo and controller off/on test are still required.

@@ -22,3 +22,9 @@ artwork. The factory data came from
 and [lighting notes](docs/LIGHTING.md) document the extraction and validation.
 Vendor executables, assemblies, configuration files and decompiled source are
 not distributed here.
+
+`flydigi_control/factory_vader5.json` contains numeric profile-reset settings
+converted from that same device-type-130 file. The profile reference harness
+reproduces the conversion; only the controller's observed mapping extent is
+included. These vendor-authored settings are included for interoperability,
+not claimed as original project work.
