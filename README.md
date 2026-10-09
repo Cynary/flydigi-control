@@ -50,6 +50,7 @@ Command-line checks:
 ```sh
 python3 -m flydigi_control --probe       # USB identity and wake capability; no commands sent
 python3 -m flydigi_control --info        # controller identity and firmware
+python3 -m flydigi_control --macros      # active 3.2 profile macro bank; read only
 python3 -m flydigi_control --hardware-settings  # global settings; read only
 python3 -m flydigi_control --features    # current Turbo and Fn profile shortcut settings
 python3 -m flydigi_control --monitor 60  # passive button capture while Steam owns native input

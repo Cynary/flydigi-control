@@ -55,7 +55,7 @@ class ConfigurationDevice:
     The advisory lock serializes our own configuration clients.
     """
     ALLOWED = {protocol.CMD_INFO, protocol.CMD_RUMBLE, 0x03, 0x10, 0x11, 0x13, 0x15, 0x16, 0x17, protocol.CMD_PROFILE_VERSIONS,
-               protocol.CMD_MAPPING_READ, protocol.CMD_PROFILE_SAVE,
+               protocol.CMD_MAPPING_READ, protocol.CMD_MACRO_READ, protocol.CMD_PROFILE_SAVE,
                protocol.CMD_MAPPING_WRITE_START, protocol.CMD_MAPPING_WRITE_PACK,
                protocol.CMD_LED_READ, protocol.CMD_LED_WRITE_START,
                protocol.CMD_LED_WRITE_PACK, protocol.CMD_LED_TEST_COLOR}
@@ -105,6 +105,8 @@ class ConfigurationDevice:
             raise ValueError('Invalid profile-save packet')
         if packet[2] == protocol.CMD_RUMBLE and packet != protocol.rumble_motors(*packet[4:8]):
             raise ValueError('Invalid four-motor rumble packet')
+        if packet[2] == protocol.CMD_MACRO_READ and packet != protocol.macro_read_request(packet[4]):
+            raise ValueError('Invalid macro-read packet')
         if packet[2] == protocol.CMD_MAPPING_READ and packet != protocol.mapping_read_request(packet[4]):
             raise ValueError('Invalid mapping-read packet')
         if packet[2] == protocol.CMD_MAPPING_WRITE_START and packet != protocol.mapping_write_start(*packet[4:7]):
@@ -178,29 +180,41 @@ class ConfigurationDevice:
 
     def read_mapping(self, profile):
         """Back up only the already active profile, without selecting another."""
+        return self._read_profile_blob(profile, protocol.mapping_read_request(profile), 'mapping')
+
+    def read_macros(self, profile):
+        """Opaque backup of the separate bank used by mapping format 3.2."""
+        blob = self._read_profile_blob(profile, protocol.macro_read_request(profile), 'macro')
+        if len(blob) != 81 * 20:
+            raise ValueError('Unexpected macro-bank size; no settings were saved')
+        return blob
+
+    def _read_profile_blob(self, profile, packet, label):
         if self.profile_state()[0] != profile:
             raise ValueError('Controller profile changed')
         list(self._read())
-        self.send(protocol.mapping_read_request(profile))
+        self.send(packet)
         chunks = {}
         count = None
         deadline = time.monotonic() + 3
         while (remaining := deadline - time.monotonic()) > 0:
             select.select([self.fd], [], [], remaining)
             for reply in self._read():
-                if len(reply) != 32 or reply[:3] != protocol.MAGIC + bytes([protocol.CMD_MAPPING_READ]):
+                if len(reply) != 32 or reply[:3] != packet[:3]:
                     continue
                 total, index, returned_profile = reply[3:6]
                 if returned_profile != profile or not 1 <= total <= 255 or index >= total or count not in (None, total):
-                    raise ValueError('Inconsistent mapping reply')
+                    raise ValueError(f'Inconsistent {label} reply')
                 count = total
                 chunk = bytes(reply[6:26])
                 if index in chunks and chunks[index] != chunk:
-                    raise ValueError('Conflicting mapping reply')
+                    raise ValueError(f'Conflicting {label} reply')
                 chunks[index] = chunk
                 if len(chunks) == count:
+                    if self.profile_state()[0] != profile:
+                        raise ValueError('Profile changed during backup')
                     return b''.join(chunks[i] for i in range(count))
-        raise TimeoutError('Incomplete mapping backup; nothing was saved')
+        raise TimeoutError(f'Incomplete {label} backup; nothing was saved')
 
     def write_mapping(self, profile, original, updated):
         from .persistence import _mapping_version

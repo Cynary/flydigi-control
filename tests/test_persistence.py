@@ -18,6 +18,7 @@ class Controller:
         self.mapping[:3] = bytes([2, 3, 79])
         self.mapping[225:227] = (20).to_bytes(2, 'little')
         self.lighting = bytes.fromhex('000300000901140a0700ffffffffffffffffffff') + bytes(300)
+        self.macros = bytes([0, 1, 0, 0]) + bytes([255])*1616
         self.writes = []
         self.save_timeout = False
         self.ignore_save = False
@@ -31,6 +32,10 @@ class Controller:
     def read_mapping(self, profile):
         assert profile == self.profile
         return bytes(self.mapping)
+
+    def read_macros(self, profile):
+        assert profile == self.profile
+        return self.macros
 
     def read_lighting(self):
         return self.profile, self.lighting

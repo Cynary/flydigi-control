@@ -81,6 +81,9 @@ def apply_configuration(device, backup_dir, *, lighting_update=None, mapping_upd
     mapping = device.read_mapping(profile)
     if _mapping_version(mapping) != versions[profile]:
         raise RuntimeError('Profile version changed; nothing was written')
+    # Version 3.2 moved macros out of the base mapping block. A6 saves the
+    # active profile; back up and verify this separate state even for LED edits.
+    macros = device.read_macros(profile) if mapping[0] >= 2 else None
     led_profile, original = device.read_lighting()
     if led_profile != profile or device.profile_state() != state:
         raise RuntimeError('Profile changed during backup; nothing was written')
@@ -93,9 +96,12 @@ def apply_configuration(device, backup_dir, *, lighting_update=None, mapping_upd
         'versions': list(versions), 'mapping': mapping.hex(),
         'lighting': original.hex(), 'requested_lighting': blob.hex(),
         'requested_mapping': updated_mapping.hex(),
+        'macros': macros.hex() if macros is not None else None,
     })
     # Even an unchanged live value may not have been saved, so Apply must commit
     # it. Ordinary UI refreshes and reconnects never call this function.
+    if macros is not None and device.read_macros(profile) != macros:
+        raise RuntimeError(f'Macros changed during backup; nothing was written. Backup: {backup}')
     if lighting_update:
         device.write_lighting(profile, blob)
     if updated_mapping != mapping:
@@ -104,6 +110,8 @@ def apply_configuration(device, backup_dir, *, lighting_update=None, mapping_upd
         raise RuntimeError(f'Lighting verification failed; no save sent. Backup: {backup}')
     if device.read_mapping(profile) != updated_mapping or device.profile_state() != state:
         raise RuntimeError(f'Profile changed; no save sent. Backup: {backup}')
+    if macros is not None and device.read_macros(profile) != macros:
+        raise RuntimeError(f'Macros changed; no save sent. Backup: {backup}')
     # 0xffff is the vendor's factory/default sentinel. Use a fresh non-sentinel
     # identifier, matching the official app's range, without probabilistic loops.
     version = secrets.randbelow(65535)
@@ -123,4 +131,6 @@ def apply_configuration(device, backup_dir, *, lighting_update=None, mapping_upd
         raise RuntimeError(f'Profile differs after saving; no further writes sent. Backup: {backup}')
     if device.read_lighting() != (profile, blob):
         raise RuntimeError(f'Lighting differs after saving; no further writes sent. Backup: {backup}')
+    if macros is not None and device.read_macros(profile) != macros:
+        raise RuntimeError(f'Macros differ after saving; no further writes sent. Backup: {backup}')
     return backup

@@ -65,6 +65,7 @@ CMD_PROFILE_VERSIONS = 0xA1  # which on-board profile is active
 CMD_MAPPING_READ = 0xA3
 CMD_MAPPING_WRITE_START = 0xA4
 CMD_MAPPING_WRITE_PACK = 0xA5
+CMD_MACRO_READ = 0xAC
 CMD_PROFILE_SAVE = 0xA6
 CMD_LED_READ = 0xA7
 CMD_LED_WRITE_START = 0xA8
@@ -97,6 +98,11 @@ def mapping_read_request(profile: int) -> bytes:
     if type(profile) is not int or not 0 <= profile <= 3:
         raise ValueError('Invalid profile')
     return request(CMD_MAPPING_READ, profile, BLOB_PACKET_SIZE)
+
+
+def macro_read_request(profile: int) -> bytes:
+    mapping_read_request(profile)  # same active PC profile range and chunk size
+    return request(CMD_MACRO_READ, profile, BLOB_PACKET_SIZE)
 
 
 def profile_save_request(version: int) -> bytes:

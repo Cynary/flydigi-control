@@ -9,6 +9,7 @@ def main():
     parser = argparse.ArgumentParser(description='Flydigi Vader 5 Pro configuration')
     parser.add_argument('--probe', action='store_true', help='Read USB identity and wake support without writing commands')
     parser.add_argument('--info', action='store_true', help='Query controller identity')
+    parser.add_argument('--macros', action='store_true', help='Read the active profile’s macro bank; no writes')
     parser.add_argument('--hardware-settings', action='store_true', help='Read global filtering, precision, sensitivity and sleep settings')
     parser.add_argument('--features', action='store_true', help='Read Turbo and Fn profile hotkey settings')
     parser.add_argument('--native-input', choices=('on', 'off'), help='Allow Steam to map the extra buttons; restart Steam afterward')
@@ -23,7 +24,7 @@ def main():
     if args.probe:
         print(json.dumps(discover(), indent=2))
         return
-    if args.info or args.color or args.features or args.hardware_settings or args.mapping_status or args.native_input or args.turbo or args.profile_hotkeys or args.monitor is not None:
+    if args.info or args.color or args.features or args.hardware_settings or args.macros or args.mapping_status or args.native_input or args.turbo or args.profile_hotkeys or args.monitor is not None:
         devices = discover()
         if not args.device and len(devices) != 1:
             parser.error('Connect one Vader 5 Pro or select --device from --probe output')
@@ -40,6 +41,19 @@ def main():
                 print('Native mapping permission saved. Restart Steam to detect the native interface.')
             if args.mapping_status:
                 print(json.dumps(device.mapping_status(), indent=2))
+            if args.macros:
+                from .macro_bank import decode_bank
+                device.info()
+                state = device.profile_state()
+                mapping = device.read_mapping(state[0])
+                if mapping[:2] != bytes([2,3]):
+                    parser.error('This command requires mapping format 3.2')
+                bank = decode_bank(device.read_macros(state[0]))
+                if device.profile_state() != state:
+                    raise RuntimeError('Profile changed during read')
+                print(json.dumps({'profile': state[0], 'bank_version': bank.version,
+                                  'macros': [asdict(r.macro) for r in bank.records],
+                                  'raw_bank': bank.raw.hex()}, indent=2))
             if args.hardware_settings:
                 from . import protocol
                 from .hardware_settings import parse_status

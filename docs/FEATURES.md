@@ -16,7 +16,7 @@ parser test does not establish that the corresponding control works on hardware.
 | Triggers | Candidate edits travel range and per-side vibration amplitude, threshold and strength; one shared enable flag | Hardware response/save tests; native Steam Input interaction |
 | Motion | Raw gyro/acceleration diagnostics; candidate gyro-to-stick editor with activation, sensitivity and deadzone compensation | Hardware effect and persistence, two-button behavior, mouse path and streaming verification; hidden vendor smoothing fields are preserved |
 | Profiles | Active profile can be read; Fn shortcut control exists | Profile management, backups/import/export and safe save/restore |
-| Macros/Turbo | Extra Turbo button exposed; firmware shortcuts documented; candidate edits per-button rapid-fire rate and activation | Macro editor and firmware shortcut behavior validation |
+| Macros/Turbo | Turbo and rapid-fire controls; separate-bank backup/readback; offline macro codec matches vendor serializer | Couch macro editor, hardware write/save sequence and firmware shortcut behavior validation |
 | Global settings | Candidate edits firmware filtering, automatic calibration, rebound suppression, precision, center sensitivity and sleep, with capability checks | Hardware behavior and persistence; report-rate writes need protocol clarification |
 | Calibration/device tools | Automatic-calibration switch implemented; manual procedure not implemented | Inventory manual calibration, firmware/receiver and other Vader tools before claiming parity |
 | Wake | Receiver does not advertise USB remote wake | No supported method identified; do not claim controller wake works |
@@ -32,6 +32,9 @@ rapid fire. Macro and PC-supplied keyboard/mouse mappings remain separate work.
 
 The [motion-mapping notes](MOTION-MAPPING.md) distinguish the controller’s
 gyro-to-stick feature from raw Steam Input motion and PC-generated mouse input.
+
+The [macro notes](MACROS.md) describe the separate bank, its save protection and
+independent serializer checks. Hardware macro editing is still unfinished.
 
 ## Circle and rectangle
 

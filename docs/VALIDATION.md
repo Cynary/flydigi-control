@@ -27,6 +27,11 @@ are superseded by this table and the later results.
 
 ## Current evidence
 
+Format-3.2 saves now require backing up and verifying the separate macro bank.
+The macro codec matches four byte vectors from the vendor serializer. No macro
+read has been captured from this controller yet, and macro writes stay blocked.
+See [macro research and limits](MACROS.md).
+
 The motion candidate adds onboard gyro-to-left/right-stick mapping, activation
 buttons, sensitivity and deadzone compensation. It preserves asymmetric X/Y
 sensitivity unless edited, plus all hidden smoothing fields. Its 1080p page was
@@ -44,7 +49,7 @@ calibration, rebound suppression, precision, center sensitivity and sleep contro
 Its packet and UI checks pass, but these new commands have not been sent to hardware.
 [Protocol details and remaining checks](HARDWARE-SETTINGS.md).
 
-2026-10-09: The `onboard-settings` candidate passes 117 protocol, persistence,
+2026-10-09: The `onboard-settings` candidate passes 129 protocol, persistence,
 diagnostic and Qt tests on the K17. Offscreen previews of the stick settings and
 analog/motor/response/trigger/grip/global-settings/button/motion-mapping pages were inspected, using simulated input or
 the saved read-only profile. Curve samples
