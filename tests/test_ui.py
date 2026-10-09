@@ -624,6 +624,34 @@ class UITests(unittest.TestCase):
             self.assertEqual(len(macro_library.entries(panel.folder)[0]), 1)
 
 
+    def test_vendor_export_is_controller_navigable_offline_and_respects_busy(self):
+        import tempfile
+        from pathlib import Path
+        from test_macro_bank import sample
+        from flydigi_control import macro_library, vendor_macro
+        panel = self.window.macro_library
+        with tempfile.TemporaryDirectory() as directory:
+            panel.folder = Path(directory)
+            name = macro_library.save_copy(directory, sample())
+            original = (panel.folder/name).read_bytes()
+            self.window.open_macro_library()
+            self.assertTrue(panel.export_vendor.isEnabled())
+            panel.export_vendor.setFocus(); self.press(Qt.Key.Key_Return)
+            exported = list((panel.folder/'exports').glob('*.dat'))
+            self.assertEqual(len(exported), 1)
+            self.assertEqual(vendor_macro.read(exported[0], sample().key), sample())
+            self.assertEqual((panel.folder/name).read_bytes(), original)
+            self.assertIn(str(exported[0]), panel.result.text())
+            self.assertIsNone(self.window.worker)
+            self.assertIsNone(self.window.macro_panel.snapshot)
+            panel.set_busy(True); panel.export_copy()
+            self.assertFalse(panel.export_vendor.isEnabled())
+            self.assertEqual(len(list((panel.folder/'exports').glob('*.dat'))), 1)
+            panel.set_busy(False); (panel.folder/name).unlink(); panel.reload()
+            self.assertFalse(panel.export_vendor.isEnabled())
+            for _ in range(3): self.app.processEvents()
+            self.assertLessEqual(self.window.minimumSizeHint().height(),1080)
+
     def test_profile_selection_requires_confirmation_and_invalidates_on_reconnect(self):
         from test_profiles import Controller
         from flydigi_control.persistence_check import snapshot

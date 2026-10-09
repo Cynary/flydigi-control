@@ -1,9 +1,61 @@
-"""Import Space Station 4.2.0.9 MacroItem protobuf files; no hardware access."""
+"""Exchange Space Station 4.2.0.9 MacroItem protobuf files; no hardware access."""
 import os
 import stat
+from pathlib import Path
+import tempfile
+import uuid
 
 from .macro_bank import Action, Macro, validate_execution
 from .macro_library import MAX_FILE_BYTES
+
+
+def _encode_integer(value):
+    result = bytearray()
+    while value >= 128:
+        result.append((value & 127) | 128)
+        value >>= 7
+    result.append(value)
+    return bytes(result)
+
+
+def _scalar(number, value):
+    # Protobuf's serializer omits scalar defaults.
+    return _encode_integer(number << 3) + _encode_integer(value) if value else b''
+
+
+def _message(number, raw):
+    return _encode_integer((number << 3) | 2) + _encode_integer(len(raw)) + raw
+
+
+def encode(macro):
+    """Serialize a validated local macro as the vendor's individual .dat file."""
+    validate_execution(macro)
+    raw = _scalar(1, macro.key) + _scalar(2, len(macro.actions)) + _scalar(3, macro.mode)
+    for action in macro.actions:
+        raw += _message(4, _scalar(1, action.key) + _scalar(2, action.delay_ms) + _scalar(3, action.event))
+    raw += _scalar(5, macro.interval_ms)
+    if macro.name:
+        raw += _message(6, macro.name.encode('utf-8'))
+    return raw
+
+
+def export_copy(folder, macro):
+    """Write a new private .dat file; never overwrite a library or vendor file."""
+    raw = encode(macro)
+    folder = Path(folder)
+    folder.mkdir(parents=True, exist_ok=True)
+    filename = uuid.uuid4().hex + '.dat'
+    descriptor, temporary = tempfile.mkstemp(prefix='.macro-', dir=folder)
+    try:
+        with os.fdopen(descriptor, 'wb') as stream:
+            stream.write(raw); stream.flush(); os.fsync(stream.fileno())
+        os.replace(temporary, folder / filename)
+        directory = os.open(folder, os.O_RDONLY | os.O_DIRECTORY)
+        try: os.fsync(directory)
+        finally: os.close(directory)
+    finally:
+        Path(temporary).unlink(missing_ok=True)
+    return folder / filename
 
 
 def _varint(raw, offset):

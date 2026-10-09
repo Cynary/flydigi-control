@@ -60,7 +60,7 @@ calibration, rebound suppression, precision, center sensitivity and sleep contro
 Its packet and UI checks pass, but these new commands have not been sent to hardware.
 [Protocol details and remaining checks](HARDWARE-SETTINGS.md).
 
-2026-10-09: The `onboard-settings` candidate passes 207 protocol, persistence,
+2026-10-09: The `onboard-settings` candidate passes 212 protocol, persistence,
 diagnostic and Qt tests on the K17. Offscreen previews of the stick settings and
 analog/motor/response/trigger/grip/global-settings/button/motion-mapping/macro pages were inspected, using simulated input or
 the saved read-only profile. Curve samples
@@ -383,3 +383,24 @@ automatic pre-restore backup, version updates, lost acknowledgments, invalid or
 stale snapshots, backup/readback failures and the review UI. The K17 passes all
 207 tests. The profiles page was rendered and inspected at 1280×1080. These
 results use a simulated controller; no physical restoration has been attempted.
+
+
+### Space Station macro export
+
+The PC library now exports an explicitly selected saved copy as an individual
+Space Station-format `.dat` file. It works without a receiver and never sends
+hardware commands. New files use private permissions and unique names; draft
+changes must first be saved as a PC copy.
+
+The encoder matches the independent vendor serializer fixtures. The actual
+vendor parser also recovered every field from three newly exported cases
+(260 actions total), covering scalar defaults, a 65,535 ms delay, UTF-8 names,
+right-stick directions and the 256-action limit. This is an independent decoder
+check, not a roundtrip through only our own code.
+
+All 212 tests pass on the K17, including controller-key activation, offline/busy
+states, failed file writes and preservation of source files. The completed
+export page was rendered and visually inspected at 1280×1080. It fits with the
+result path displayed. Space Station library-index registration and physical
+macro execution remain unverified. This change is newer than the unpublished
+October 9 image built with app commit `9fe53f9`; it is not installed.

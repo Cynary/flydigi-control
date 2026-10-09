@@ -3,6 +3,20 @@ using System.Text.Json;
 using Flydigi.SharedResources.Data.Protobuf;
 using Google.Protobuf;
 
+// Check files exported by our implementation with the actual vendor parser.
+if (args.Length > 0) {
+    var results = new List<object>();
+    foreach (var path in args) {
+        var macro = MacroItem.Parser.ParseFrom(File.ReadAllBytes(path));
+        if (macro.Count != macro.Actions.Count) throw new Exception("Action count differs");
+        results.Add(new {path, key=(int)macro.KeyId, mode=(int)macro.Type,
+            interval_ms=macro.Interval, name=macro.CfgName,
+            actions=macro.Actions.Select(a=>new {delay_ms=a.Duration,key=(int)a.KeyId,@event=(int)a.Event}).ToArray()});
+    }
+    Console.WriteLine(JsonSerializer.Serialize(results));
+    return;
+}
+
 var sdk = Assembly.Load("Flydigi.ControllerSdk");
 var parser = sdk.GetType("Flydigi.ControllerSDK.data.parser.MacroConfigParser")!.GetNestedType("MacroConfigParserV10", BindingFlags.NonPublic)!;
 var serialize = parser.GetMethod("ParseConfigBeanToArray", BindingFlags.Public | BindingFlags.Static)!;

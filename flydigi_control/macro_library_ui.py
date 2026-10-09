@@ -29,17 +29,20 @@ class MacroLibraryPanel(QWidget):
         self.load = QPushButton('Load into the selected button’s draft'); layout.addWidget(self.load)
         self.delete = QPushButton('Delete PC copy'); layout.addWidget(self.delete)
         self.imports = QComboBox(); layout.addWidget(self.imports)
-        self.import_vendor = QPushButton('Import selected Space Station .dat'); layout.addWidget(self.import_vendor)
+        transfers = QHBoxLayout(); layout.addLayout(transfers)
+        self.import_vendor = QPushButton('Import Space Station .dat'); transfers.addWidget(self.import_vendor)
+        self.export_vendor = QPushButton('Export PC copy as Space Station .dat'); transfers.addWidget(self.export_vendor)
         self.result = QLabel(); self.result.setWordWrap(True); layout.addWidget(self.result)
         note = QLabel('Loading changes the editor draft only. Review it and choose Save macro to the controller to apply.\n'
                       'Copy JSON files here to share macros. For Space Station macros, put .dat files in the imports subfolder and refresh.')
         note.setWordWrap(True); layout.addWidget(note); layout.addStretch()
-        self.controls = [self.back, self.items, self.refresh, self.save, self.load, self.delete, self.imports, self.import_vendor]
+        self.controls = [self.back, self.items, self.refresh, self.save, self.load, self.delete, self.imports, self.import_vendor, self.export_vendor]
         self.refresh.clicked.connect(self.reload)
         self.save.clicked.connect(self.save_draft)
         self.load.clicked.connect(self.load_draft)
         self.delete.clicked.connect(self.delete_copy)
         self.import_vendor.clicked.connect(self.import_copy)
+        self.export_vendor.clicked.connect(self.export_copy)
         self.imports.currentIndexChanged.connect(lambda unused:self.set_busy(self.busy))
 
     def set_busy(self, busy):
@@ -50,6 +53,7 @@ class MacroLibraryPanel(QWidget):
         self.delete.setEnabled(not busy and self.items.currentData() is not None)
         self.imports.setEnabled(not busy)
         self.import_vendor.setEnabled(not busy and self.imports.currentData() is not None)
+        self.export_vendor.setEnabled(not busy and self.items.currentData() is not None)
 
     def reload(self, selected=None):
         if self.busy: return
@@ -139,5 +143,15 @@ class MacroLibraryPanel(QWidget):
             saved = library.save_copy(self.folder, macro)
             self.reload(saved)
             self.result.setText('Imported a PC copy. Review it in the editor before applying; the original file is unchanged.')
+        except (OSError, ValueError) as error:
+            self.result.setText(str(error))
+
+    def export_copy(self):
+        filename = self.items.currentData()
+        if self.busy or filename is None: return
+        try:
+            from .vendor_macro import export_copy
+            path = export_copy(self.folder/'exports', library.load(self.folder, filename))
+            self.result.setText(f'Exported to {path}\nThe PC copy and controller are unchanged.')
         except (OSError, ValueError) as error:
             self.result.setText(str(error))

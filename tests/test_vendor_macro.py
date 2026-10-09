@@ -2,8 +2,10 @@ import json
 from pathlib import Path
 import tempfile
 import unittest
-from flydigi_control.macro_bank import Action
-from flydigi_control.vendor_macro import decode, read
+from dataclasses import replace
+from unittest.mock import patch
+from flydigi_control.macro_bank import Action, Macro
+from flydigi_control.vendor_macro import decode, read, encode, export_copy
 
 
 def fixture():
@@ -11,6 +13,41 @@ def fixture():
 
 
 class VendorMacroTests(unittest.TestCase):
+    def test_export_matches_independent_vendor_serializer(self):
+        for value in json.loads(Path(__file__).with_name('vendor_macro_file_vectors.json').read_text()):
+            if value['key'] > 23: continue  # Export a bound macro, not a vendor template.
+            raw = bytes.fromhex(value['hex'])
+            self.assertEqual(encode(decode(raw, value['key'])), raw)
+
+    def test_export_default_fields_maximum_values_and_both_sticks(self):
+        macros = (
+            Macro(0, 0, 0, '', (Action(0, 0, 1), Action(0, 0, 0))),
+            Macro(23, 3, 65535, 'é猫', (Action(0, 168, 3), Action(65535, 160, 3))),
+            Macro(16, 2, 150, 'Many actions', tuple(Action(0, 4, 1-i%2) for i in range(256))),
+        )
+        for macro in macros:
+            self.assertEqual(decode(encode(macro), macro.key, macro.name), macro)
+
+    def test_export_is_private_new_file_without_changing_import(self):
+        with tempfile.TemporaryDirectory() as folder:
+            source = Path(folder)/'source.dat'; source.write_bytes(fixture())
+            macro = read(source, 18)
+            first, second = export_copy(Path(folder)/'exports', macro), export_copy(Path(folder)/'exports', macro)
+            self.assertNotEqual(first, second)
+            self.assertEqual(first.stat().st_mode & 0o777, 0o600)
+            self.assertEqual(read(first, 18), macro)
+            self.assertEqual(source.read_bytes(), fixture())
+            self.assertFalse(list(first.parent.glob('.macro-*')))
+
+    def test_export_invalid_macro_and_failed_write_leave_no_output(self):
+        with tempfile.TemporaryDirectory() as folder:
+            target = Path(folder)/'exports'
+            with self.assertRaises(ValueError):export_copy(target, replace(decode(fixture(),18),actions=()))
+            self.assertFalse(target.exists())
+            with patch('flydigi_control.vendor_macro.os.fsync',side_effect=OSError('disk')):
+                with self.assertRaises(OSError):export_copy(target, decode(fixture(),18))
+            self.assertEqual(list(target.iterdir()), [])
+
     def test_actual_vendor_files_keep_actions_and_rebind_templates(self):
         for value in json.loads(Path(__file__).with_name('vendor_macro_file_vectors.json').read_text()):
             macro = decode(bytes.fromhex(value['hex']), 19)
