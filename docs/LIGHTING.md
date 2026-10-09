@@ -81,6 +81,40 @@ active profile, lost acknowledgments, unsupported formats and readback failures.
 A lost save acknowledgment is checked through the profile version without
 replaying the write. Successful readback is not power-cycle validation.
 
+### Checking persistence without restoring anything
+
+After applying and saving the settings to test, close the configuration app and
+take a baseline from the candidate checkout:
+
+```sh
+python3 -m flydigi_control.persistence_check snapshot ~/.local/state/flydigi-control/persistence-tests
+```
+
+The command prints the path of a private JSON file. Turn the controller fully
+off and back on, then compare against that file:
+
+```sh
+python3 -m flydigi_control.persistence_check check /path/printed/by/the/first/command.json
+```
+
+Repeat the check after unplugging/reconnecting the receiver and after restarting
+the PC. Leave the app closed during these checks: otherwise a future restore
+helper could hide that the controller lost its onboard settings. The temporary
+`--color` command is not an onboard save and should not be used to prepare this
+test.
+
+The check reads the active profile's complete mapping, lighting and macro bank,
+the profile versions, global setting values and native-mapping permission. It
+reads them twice to reject changing state. Differences include byte offsets for
+the profile data. It does not send save, restore, mode-change or reset commands.
+Exit status is 0 for a match, 1 for differences and 2 for an incomplete check.
+
+Battery level and Steam's current ownership are excluded. Use the same physical
+controller, firmware, connection type and active profile: the identity reply
+does not contain a unique serial number. This checks stored data, not whether
+every setting has the intended physical effect. A match only establishes
+persistence if the stated off/on, replug or reboot actually took place.
+
 ## Evidence locations
 
 Installer SHA-256: `736070b18d99ef77b0eb4622fb670613cf86b6fcc1bcded923a4bae8dfdc373a`.

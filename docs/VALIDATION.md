@@ -60,7 +60,7 @@ calibration, rebound suppression, precision, center sensitivity and sleep contro
 Its packet and UI checks pass, but these new commands have not been sent to hardware.
 [Protocol details and remaining checks](HARDWARE-SETTINGS.md).
 
-2026-10-09: The `onboard-settings` candidate passes 170 protocol, persistence,
+2026-10-09: The `onboard-settings` candidate passes 177 protocol, persistence,
 diagnostic and Qt tests on the K17. Offscreen previews of the stick settings and
 analog/motor/response/trigger/grip/global-settings/button/motion-mapping/macro pages were inspected, using simulated input or
 the saved read-only profile. Curve samples
@@ -337,3 +337,13 @@ M1, M2, M3, M4 check then confirmed A, B, C, D after correcting the test's
 configuration. The driver did not need a paddle change: the first test incorrectly
 assumed which Steam configuration IDs corresponded to R4/R5 and L4/L5.
 The corrected mapping is in [the test instructions](../experimental/STEAM-INPUT-CHECK.md).
+
+### Read-only persistence verification
+
+The candidate has a snapshot/check command covering the active mapping, LEDs,
+macro bank, global settings, native permission and profile versions. Seven new
+tests verify changed bytes, firmware/profile mismatches, inconsistent reads,
+private snapshot files, failure exit codes and exclusion of battery/ownership.
+The K17 ran all 177 tests, including the Qt tests. The receiver is absent, so
+this is tooling validation; no onboard save or physical power-cycle result is
+claimed. See [the persistence procedure](LIGHTING.md#checking-persistence-without-restoring-anything).
