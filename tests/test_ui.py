@@ -669,5 +669,32 @@ class UITests(unittest.TestCase):
             self.assertFalse(results[-1][0]); self.assertEqual(len(values),1)
 
 
+    def test_profile_restore_review_confirmation_and_no_implicit_write(self):
+        import tempfile,json
+        from pathlib import Path
+        from test_profile_restore import Controller
+        from flydigi_control.persistence_check import snapshot
+        panel=self.window.profile_selection
+        with tempfile.TemporaryDirectory() as directory:
+            panel.folder=Path(directory)
+            data=snapshot(Controller());source=dict(data)
+            value=bytearray.fromhex(source['mapping']);value[800]=1;source['mapping']=value.hex()
+            (panel.folder/'source.json').write_text(json.dumps(source))
+            (panel.folder/'bad.json').write_text('[]')
+            panel.set_available(True);panel.load(data);panel.refresh_backups()
+            self.window.pages.setCurrentIndex(15)
+            self.assertEqual(panel.backups.count(),1)
+            self.assertTrue(panel.restore.isEnabled())
+            requests=[];panel.restore_requested.connect(lambda:requests.append(panel.restore_source()))
+            panel.restore.setFocus();self.press(Qt.Key.Key_Return)
+            self.assertEqual(requests,[])
+            self.press(Qt.Key.Key_Return);self.assertEqual(requests,[source])
+            self.assertIsNone(self.window.worker)
+            self.assertIn('Mappings and analog settings: changed',panel.preview.text())
+            for _ in range(3):self.app.processEvents()
+            self.assertLessEqual(self.window.minimumSizeHint().height(),1080)
+            panel.clear();self.assertFalse(panel.restore.isEnabled())
+
+
 if __name__ == '__main__':
     unittest.main()

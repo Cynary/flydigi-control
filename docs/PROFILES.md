@@ -25,9 +25,8 @@ selection itself survives power-off still needs a physical test. Switch-mode
 profiles are not selected through this PC-mode editor.
 
 Backups use the read-only persistence-check format, so they can also be compared
-with `python3 -m flydigi_control.persistence_check check PATH`. A restore/import
-UI for whole profiles remains to be implemented; do not manually replay the raw
-bytes or treat these files as a tested recovery utility.
+with `python3 -m flydigi_control.persistence_check check PATH`. The candidate also provides restoration from these files, as described below.
+Physical recovery has not yet been tested.
 
 ## Validation
 
@@ -37,3 +36,30 @@ verification failures, controller navigation and worker error reporting. The
 full candidate suite passes 200 tests on the K17. The profiles page was rendered
 and inspected at 1280×1080. No profile-selection command has been sent to the
 physical controller during development of this candidate.
+
+## Restore a profile backup
+
+Read the active profile, choose **Find backups**, select a file and review which
+sections differ. **Restore profile from backup** asks for a second confirmation
+before replacing its mappings/analog settings, LEDs and macros, then saving them
+onboard. The model, firmware, connection type, original profile slot and data
+formats must match. Use only a backup from this same physical controller: the
+protocol does not provide a unique serial number with which to verify identity.
+
+The current profile is backed up before restoration in the same format, so it
+can be selected to undo the restore. A separate transaction record contains the
+original and requested data. The saved version number is updated, not copied
+from the older backup. Global settings, native-mapping permission and Steam
+ownership are not restored. Change those through their own settings pages.
+
+Copy an app-generated profile backup into the state directory to import it, then
+choose Find backups. These files are not Space Station whole-profile files; that
+conversion remains unimplemented. Older transaction logs without the profile
+snapshot format are skipped. Unknown formats, incompatible macro events and
+invalid data are rejected rather than reinterpreted.
+
+Seven further tests cover restoring all profile sections, using the automatic
+backup to undo it, version handling, lost acknowledgments, incompatibility,
+stale state, failed backup/readback, file bounds and controller-operated review.
+All 207 tests pass on the K17. The restored-state tests use a simulated device;
+physical restore and retention after power-off still require validation.

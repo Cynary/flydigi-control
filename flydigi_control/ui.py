@@ -419,6 +419,7 @@ class Window(QWidget):
         self.profile_selection.read.clicked.connect(lambda:self.profile_selection_operation())
         self.profile_selection.backup.clicked.connect(lambda:self.profile_selection_operation(backup_only=True))
         self.profile_selection.requested.connect(lambda:self.profile_selection_operation(switch=True))
+        self.profile_selection.restore_requested.connect(lambda:self.profile_selection_operation(restore=True))
         self.pages.addWidget(self.profile_selection)
         self.macro_settings = QPushButton('Onboard macros')
         self.macro_settings.clicked.connect(lambda: self.pages.setCurrentIndex(12))
@@ -667,19 +668,22 @@ class Window(QWidget):
         self.show_device()
         self.worker.start()
 
-    def profile_selection_operation(self, switch=False, backup_only=False):
+    def profile_selection_operation(self, switch=False, backup_only=False, restore=False):
         panel = self.profile_selection
-        if self.worker is not None or not self.devices or (switch and panel.snapshot is None):return
+        mutation = switch or restore
+        if self.worker is not None or not self.devices or (mutation and panel.snapshot is None):return
+        if restore and panel.restore_source() is None:return
         target = panel.target.currentIndex() if switch else None
-        self.worker = ProfileSelectionOperation(self.device_box.currentData(), panel.snapshot, target, backup_only, self)
+        self.worker = ProfileSelectionOperation(self.device_box.currentData(), panel.snapshot, target, backup_only, self,
+                                                restore_source=panel.restore_source() if restore else None)
         def values(data):
-            if switch:
+            if mutation:
                 self.device_changed()  # Invalidate drafts for the old profile.
             panel.load(data)
         self.worker.values.connect(values)
         def result(ok, text):
             if not ok:
-                if switch:self.device_changed()  # Selection may have happened despite a lost reply.
+                if mutation:self.device_changed()  # A write may have happened despite a lost reply.
                 else:panel.clear()
             panel.result.setText(text)
         self.worker.result.connect(result)
