@@ -63,6 +63,36 @@ class UITests(unittest.TestCase):
         self.assertEqual(requested, [(51,0,0,0), (0,102,0,0),
                                      (0,0,153,0), (0,0,0,204), (51,102,153,204)])
 
+    def test_curve_preview_has_no_writes_and_rejects_unvalidated_negative_save(self):
+        panel = self.window.curve_panel
+        panel.set_available(True)
+        panel.kind.setCurrentIndex(1)
+        self.assertEqual(panel.curve().point1,(64,96))
+        self.assertTrue(panel.save.isEnabled())
+        panel.sliders[0].setValue(-10)
+        self.assertEqual(panel.kind.currentIndex(),3)
+        self.assertFalse(panel.save.isEnabled())
+        self.assertIn('preview-only',panel.note.text())
+        self.assertEqual(len(panel.plot.proposed),9)
+        self.assertIsNone(self.window.worker)
+        panel.kind.setCurrentIndex(0)
+        self.assertEqual(panel.curve().center,0)
+        self.assertTrue(panel.save.isEnabled())
+
+    def test_curve_editor_fits_1080p_and_is_controller_navigable(self):
+        self.window.pages.setCurrentIndex(6)
+        self.app.processEvents()
+        self.assertLessEqual(self.window.minimumSizeHint().height(),1080)
+        panel = self.window.curve_panel
+        panel.sliders[2].setFocus()
+        initial = panel.sliders[2].value()
+        self.press(Qt.Key.Key_Right)
+        self.assertEqual(panel.sliders[2].value(),initial+1)
+        self.assertEqual(panel.kind.currentIndex(),3)
+        panel.back.setFocus()
+        self.press(Qt.Key.Key_Return)
+        self.assertEqual(self.window.pages.currentIndex(),3)
+
     def test_motor_stop_remains_available_while_settings_are_locked(self):
         from flydigi_control.motor_ui import MotorTest
         self.window.devices = [dict(path='/dev/test', remote_wake_advertised=False)]

@@ -49,6 +49,15 @@ def apply_stick_shape(device, previous_mapping, side, shape, backup_dir):
     return apply_configuration(device, backup_dir, mapping_update=update)
 
 
+def apply_stick_curve(device, previous_mapping, side, curve, backup_dir):
+    from .curves import with_curve
+    def update(mapping):
+        if mapping != previous_mapping:
+            raise RuntimeError('Controller settings changed; read them again before applying')
+        return with_curve(mapping, side, curve)
+    return apply_configuration(device, backup_dir, mapping_update=update)
+
+
 def apply_configuration(device, backup_dir, *, lighting_update=None, mapping_update=None):
     """Caller holds ConfigurationDevice's lock throughout this transaction.
 

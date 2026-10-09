@@ -13,26 +13,31 @@ from PySide6.QtWidgets import (QApplication, QWidget, QLabel, QPushButton,
 from .transport import discover, ConfigurationDevice
 from .navigation import GamepadNavigation
 from .lighting import PALETTE, GRADIENT
-from .persistence import apply_lighting, apply_stick_shape
+from .persistence import apply_lighting, apply_stick_shape, apply_stick_curve
 from .sticks import read_sticks
 from .analog_ui import AnalogPanel, AnalogTest
 from .motor_ui import MotorPanel, MotorTest
+from .curve_ui import CurvePanel
 
 
 class StickOperation(QThread):
     result = Signal(bool, str)
     values = Signal(object)
 
-    def __init__(self, path, mapping=None, side=None, shape=None, parent=None):
+    def __init__(self, path, mapping=None, side=None, shape=None, parent=None, curve=None):
         super().__init__(parent)
         self.path, self.mapping, self.side, self.shape = path, mapping, side, shape
+        self.curve = curve
 
     def run(self):
         try:
             with ConfigurationDevice(self.path) as device:
                 if self.side is not None:
                     folder = Path(os.environ.get('XDG_STATE_HOME', str(Path.home() / '.local/state'))) / 'flydigi-control'
-                    apply_stick_shape(device, self.mapping, self.side, self.shape, folder)
+                    if self.curve is not None:
+                        apply_stick_curve(device, self.mapping, self.side, self.curve, folder)
+                    else:
+                        apply_stick_shape(device, self.mapping, self.side, self.shape, folder)
                 device.info()
                 state = device.profile_state()
                 mapping = device.read_mapping(state[0])
@@ -310,6 +315,9 @@ class Window(QWidget):
         self.stick_apply = QPushButton('Save stick shape')
         self.stick_apply.clicked.connect(lambda: self.stick_operation(apply=True))
         sticks_layout.addWidget(self.stick_apply)
+        self.stick_response = QPushButton('Edit response curve and deadzones')
+        self.stick_response.clicked.connect(self.edit_response)
+        sticks_layout.addWidget(self.stick_response)
         self.stick_result = self.label(sticks_layout, '', 'muted')
         self.stick_result.setWordWrap(True)
         sticks_layout.addStretch()
@@ -328,13 +336,18 @@ class Window(QWidget):
         self.motor_panel.requested.connect(self.start_motor_test)
         self.motor_panel.stopped.connect(self.stop_motor_test)
         self.pages.addWidget(self.motor_panel)
+        self.curve_panel = CurvePanel()
+        self.curve_panel.back.clicked.connect(lambda: self.pages.setCurrentIndex(3))
+        self.curve_panel.save.clicked.connect(self.save_response)
+        self.pages.addWidget(self.curve_panel)
         self.label(root_layout, 'D-pad / stick: navigate    A: select    B: return to Steam', 'eyebrow')
         self.controls = [self.device_box, self.lighting_tab, self.settings_tab, self.test_tab,
                          self.effect, self.color_slot, self.add_color, self.remove_color,
                          *self.color_buttons, *self.rgb_sliders, self.brightness, self.period, self.apply, self.off,
                          self.read_settings, self.native, self.turbo, self.hotkeys, self.test_start,
                          self.sticks_tab, self.stick_read, self.stick_side, self.stick_shape, self.stick_apply,
-                         self.analog_tab, self.analog_start, self.motor_tab, *self.motor_panel.controls]
+                         self.analog_tab, self.analog_start, self.motor_tab, *self.motor_panel.controls,
+                         self.stick_response, *self.curve_panel.controls]
         for control in self.controls:
             control.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
         try:
@@ -440,6 +453,7 @@ class Window(QWidget):
         for tab in (self.lighting_tab, self.settings_tab, self.test_tab, self.sticks_tab, self.analog_tab, self.motor_tab):
             tab.setEnabled(not self.testing)
         self.motor_panel.set_available(bool(self.devices) and not busy, isinstance(self.worker, MotorTest))
+        self.curve_panel.set_available(bool(self.devices) and not busy and self.stick_values is not None)
         self.test_start.setEnabled(bool(self.devices) and not busy)
         self.analog_start.setEnabled(bool(self.devices) and not busy)
         self.apply.setEnabled(bool(self.devices) and not busy)
@@ -447,7 +461,7 @@ class Window(QWidget):
         self.device_box.setEnabled(bool(self.devices) and not busy)
         self.read_settings.setEnabled(bool(self.devices) and not busy)
         self.stick_read.setEnabled(bool(self.devices) and not busy)
-        for widget in (self.stick_apply, self.stick_shape, self.stick_side):
+        for widget in (self.stick_apply, self.stick_shape, self.stick_side, self.stick_response):
             widget.setEnabled(bool(self.devices) and not busy and self.stick_values is not None)
         for button, name in ((self.native, 'third_party_control'), (self.turbo, 'turbo'), (self.hotkeys, 'profile_hotkeys')):
             value = self.feature_values.get(name)
@@ -493,6 +507,8 @@ class Window(QWidget):
             self.stick_read.setFocus()
         elif self.pages.currentIndex() == 5:
             self.motor_panel.all.setFocus()
+        elif self.pages.currentIndex() == 6:
+            self.curve_panel.back.setFocus()
         else:
             self.read_settings.setFocus()
 
@@ -517,11 +533,45 @@ class Window(QWidget):
         self.stick_shape.setCurrentIndex(value['shape'])
         self.stick_summary.setText(f"Profile {self.stick_values['profile'] + 1} · "
                                   f"Center: {value['center']} · Edge: {value['edge']}\n"
-                                  'Center and edge are read-only in this candidate.')
+                                  'Choose Edit response curve to change the response.')
+
+    def edit_response(self):
+        if self.worker is not None or self.stick_values is None:
+            return
+        side = self.stick_side.currentIndex()
+        self.curve_side = side
+        self.curve_mapping = self.stick_values['mapping']
+        self.curve_panel.reset(side, self.stick_values['sticks'][side]['curve_points'])
+        self.pages.setCurrentIndex(6)
+        self.curve_panel.kind.setFocus()
+
+    def save_response(self):
+        if self.worker is not None or self.stick_values is None or not self.devices:
+            return
+        curve = self.curve_panel.curve()
+        try:
+            # Validate before starting a worker or issuing a controller query.
+            from .curves import with_curve
+            with_curve(self.curve_mapping, self.curve_side, curve)
+        except ValueError as error:
+            self.curve_panel.result.setText(str(error))
+            return
+        self.worker = StickOperation(self.device_box.currentData(), self.curve_mapping,
+                                     self.curve_side, parent=self, curve=curve)
+        self.worker.values.connect(self.set_stick_values)
+        self.worker.result.connect(lambda ok, text: self.curve_panel.result.setText(text))
+        self.worker.finished.connect(self.applied)
+        self.curve_panel.result.setText('Backing up and verifying the selected stick response…')
+        self.show_device()
+        self.worker.start()
 
     def set_stick_values(self, values):
         self.stick_values = values
         self.load_stick()
+        if self.pages.currentIndex() == 6 and hasattr(self, 'curve_side'):
+            self.curve_mapping = values['mapping']
+            self.curve_panel.plot.stored = tuple(values['sticks'][self.curve_side]['curve_points'])
+            self.curve_panel.plot.update()
 
     def stick_operation(self, apply=False):
         if self.worker is not None or not self.devices or (apply and self.stick_values is None):

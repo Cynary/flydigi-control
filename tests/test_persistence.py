@@ -6,7 +6,7 @@ from unittest.mock import patch
 
 from flydigi_control import protocol
 from flydigi_control.persistence import apply_lighting
-from flydigi_control.persistence import apply_stick_shape
+from flydigi_control.persistence import apply_stick_shape, apply_stick_curve
 from flydigi_control.transport import ConfigurationDevice
 
 
@@ -184,3 +184,14 @@ class PersistenceTests(unittest.TestCase):
         with self.assertRaisesRegex(RuntimeError, 'read them again'):
             apply_stick_shape(self.device, original, 1, 1, self.tmp.name)
         self.assertEqual(self.device.writes, [])
+
+    def test_curve_save_verifies_complete_mapping_and_preserves_lighting(self):
+        from flydigi_control.curves import preset, with_curve
+        original, lights = bytes(self.device.mapping), self.device.lighting
+        curve = preset(2)
+        expected = bytearray(with_curve(original,0,curve))
+        apply_stick_curve(self.device,original,0,curve,self.tmp.name)
+        expected[225:227] = self.device.mapping[225:227]
+        self.assertEqual(self.device.mapping, expected)
+        self.assertEqual(self.device.lighting,lights)
+        self.assertEqual([w[0] for w in self.device.writes],['mapping','save'])

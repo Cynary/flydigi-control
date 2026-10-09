@@ -11,7 +11,7 @@ parser test does not establish that the corresponding control works on hardware.
 | Persistence | Guarded candidate saves the active profile after backing it up and checking mappings | Verify off/on, receiver replug and reboot with the app closed; check feature switches individually |
 | Grip motors | Separate SDL left/right values; Identify physically confirmed; app candidate has per-motor test levels | Physical validation of the new test page |
 | Trigger motors | SDL candidate preserves all four levels; app candidate tests each motor and all four together | Physical tests, then streaming-path verification |
-| Stick output | Candidate edits left/right circle/rectangle, preserving other profile bytes; deadzone/edge values displayed | Hardware save test; center deadzone, edge adjustment, response curve and mapping editors |
+| Stick output | Candidate edits circle/rectangle and Default/Quick/Slow/Custom response, with center/edge controls and stored/proposed curve comparison | Hardware save test; negative compensation encoding; keyboard/mouse mapping editors |
 | Stick diagnostics | Candidate shows live XY, triggers, gyro, acceleration, native report rate and 32-sector circularity error | Hardware/UI check; original versus mapped output comparison and USB polling-rate test |
 | Triggers | Analog values are decoded | Travel/range controls and tests; enumerate Vader-specific vibration settings |
 | Motion | Gyro and acceleration decoded | Official motion mappings/sensitivity/smoothing options; visible sensor tests and streaming verification |
@@ -37,8 +37,10 @@ have been changed. Unknown mapping formats must be rejected before writes.
 The candidate writes only changed 20-byte mapping chunks, checks the complete
 profile, then saves it with the same guarded transaction used for lighting.
 An outdated settings page cannot overwrite a change made since its last read.
-The vendor's parser and writer disagree on the negative encoding for center and
-edge adjustment; those fields remain read-only until that is understood.
+The response editor supports saving nonnegative center/edge values; negative
+compensation is preview-only because the vendor's parser and writer disagree
+on its encoding. See [response curves](STICK-CURVES.md) for the format, validation
+and remaining hardware checks.
 
 The input test reads the native HID reports without acquiring the controller
 or changing its mode. It processes every report and refreshes the display at

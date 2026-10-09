@@ -27,9 +27,10 @@ are superseded by this table and the later results.
 
 ## Current evidence
 
-2026-10-09: The `onboard-settings` candidate passes 58 protocol, persistence,
+2026-10-09: The `onboard-settings` candidate passes 74 protocol, persistence,
 diagnostic and Qt tests on the K17. Offscreen previews of the stick settings and
-analog test pages were inspected, using simulated input. Tests cover stale
+analog/motor/response pages were inspected, using simulated input. Curve samples
+match 12 numeric cases from the official frontend. Tests cover stale
 profile rejection, preservation of unrelated settings, backup failure, and an
 uncertain save acknowledgment without repeating the save. The candidate has not
 been installed: onboard persistence still needs controller power-cycle tests,
