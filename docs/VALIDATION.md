@@ -91,3 +91,18 @@ checking the requested query again. All 18 queries in the subsequent hardware
 run succeeded, including nine deliberate repeats. Most repeats took about
 546 ms; one took 1026 ms. This is evidence for query recovery, not a claim that
 wireless communication cannot fail. No reset or firmware update was performed.
+
+## Steam and library check
+
+After setting native mapping permission, restarting Steam activated the native
+HIDAPI path. A comparison restart without `SDL_JOYSTICK_HIDAPI_FLYDIGI` also
+activated it, so no environment override or replacement SDL library is required
+by this test. Steam's current controller list contained one controller of type
+30, and its mapping exposed paddles 1–4 plus misc2–misc6 (C/Z, LM/RM, Fn).
+The firmware status reported owner `SDL`, raw reports enabled and Xbox reports
+disabled. Physical presses and reconnect behavior remain to be checked.
+
+The configuration app was installed in the test user's application directory,
+added through Steam's shortcut API and launched through Steam. Steam's process
+log tracks its Python process as the shortcut. Controller-only navigation and
+visible LED results still need user verification.

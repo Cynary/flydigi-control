@@ -139,7 +139,7 @@ class Window(QWidget):
         self.native.clicked.connect(lambda: self.toggle_feature('third_party_control'))
         settings.addWidget(self.native)
         self.label(settings, 'Allow Steam to map the extra buttons. Controller profiles are bypassed\n'
-                            'while Steam owns it. Reconnect the receiver after changing this.', 'muted')
+                            'while Steam owns it. Restart Steam after changing this.', 'muted')
         self.turbo = QPushButton('Turbo · read settings first')
         self.turbo.clicked.connect(lambda: self.toggle_feature('turbo'))
         settings.addWidget(self.turbo)

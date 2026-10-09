@@ -89,8 +89,8 @@ Tux InVader; see [THIRD_PARTY.md](THIRD_PARTY.md) and the GPL-3.0 [license](LICE
 
 Under **Controller settings**, read the current settings, then enable
 **Native Steam Input**. This is Flydigi's permission for Steam to take over
-mapping; it leaves the reporting flags alone. Reconnect the receiver afterward
-so Steam detects it again. While Steam owns the controller, its mappings take
+mapping; it leaves the reporting flags alone. Restart Steam afterward so it detects the native interface. A receiver
+reconnect alone did not refresh the input path in our test. While Steam owns the controller, its mappings take
 precedence over the controller's onboard profiles.
 
 The command-line equivalent is `python3 -m flydigi_control --native-input on`.
