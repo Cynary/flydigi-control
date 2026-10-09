@@ -4,9 +4,10 @@ A controller-friendly configuration app for the Flydigi Vader 5 Pro on Linux.
 It is being developed for Moonmachine and can be launched as a non-Steam game
 from Big Picture.
 
-**Work in progress.** The interface and protocol tests run on the K17. Physical
-lighting, button mapping in Steam, and waking the PC have not been validated yet.
-Do not treat this as a finished driver replacement.
+**Work in progress.** All extra buttons have been captured from a Vader 5 Pro,
+and the corrected lighting colors have been checked on the controller. Steam
+receives M1–M4, C/Z, Fn and Turbo with the SDL fork. LM/RM Steam events, bindings,
+reconnects and wake testing remain before release. See [validation](docs/VALIDATION.md).
 
 The app provides color and brightness controls, plus switches for the controller's
 own Turbo function and Fn profile shortcuts. It talks to the configuration HID
@@ -50,12 +51,13 @@ hardware validation run before release.
 The Xbox-compatible USB interface only carries the usual Xbox controls. The
 vendor interface carries M1–M4, C/Z, LM/RM, Fn, Turbo and motion data. SDL has a
 native Flydigi driver, including a Vader 5 Pro transport fix merged in May 2026.
-That is the first path being tested for Steam Input support.
+That is the input path used here.
 
 Steam’s bundled SDL driver exposes the paddles, C/Z, LM/RM and Fn. Our
 [SDL fork](https://github.com/Cynary/SDL/tree/vader5-turbo) adds Turbo as a
-separate button. Its parser passes replay tests; physical mapping in Steam
-is still being validated. The kernel driver proposal also describes
+separate button. The parser passes captured-report replay tests, and Steam
+receives physical Turbo press and release events. Actual bindings are still
+being validated. The kernel driver proposal also describes
 Steam ignoring its extra evdev controls, so installing that driver alone would
 not meet this project's requirements. See [validation work](docs/VALIDATION.md).
 
@@ -69,9 +71,12 @@ These are also controller-side functions, described in the
   Turbo again to finish. Recording nothing clears that mapping.
 - Fn + A/B/X/Y chooses onboard profile 1/2/3/4.
 
-Turbo and profile shortcuts are disabled by default. Their configuration toggles
-are separate. How the firmware shortcuts coexist with Steam's enhanced input
-mode must be checked on the connected controller.
+Turbo and profile shortcuts were disabled on the tested controller. Their
+configuration toggles are separate. With both off, Fn and Turbo still send
+independent button reports for Steam to map. Turbo sends a short pulse (about
+50 ms in the capture), rather than reporting how long you hold it. Fn reports
+press and release normally. Firmware shortcuts with native Steam Input enabled
+still need testing.
 
 ## Development and image packaging
 
