@@ -472,3 +472,18 @@ of size/tail changes before writing. A complete two-read settings snapshot now
 succeeds on hardware. Subsequent attempts to save stopped during their initial
 read because configuration replies timed out; no save was sent. Off/on
 persistence therefore remains unverified.
+
+
+### First explicit hardware save
+
+2026-10-09: The configuration channel responded on the next traced read. Saving
+its existing settings sent one A6 command, acknowledged after 72 ms. Complete
+readback and a second snapshot confirmed only the active profile's version
+changed (from 65535 to 3541); LEDs, macros, remaining mapping bytes, global
+settings and native-mapping permission were unchanged. The backup includes the
+full 1660-byte macro readback. Off/on retention is the next physical check.
+
+The trace also shows repeated identical A1 queries being suppressed; the existing
+read-only primer recovers them after its 500 ms timeout. Individual configuration
+packets arrive roughly every 16 ms, so the repeated full backups/readbacks take
+seconds. This is configuration traffic, not controller-input latency.
