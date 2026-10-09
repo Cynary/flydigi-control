@@ -60,6 +60,20 @@ class HardwareSettingsTests(unittest.TestCase):
     def apply(self, key, value):
         return apply_setting(self.device, status(), key, value, self.tmp.name)
 
+    def test_all_choices_match_independently_generated_sdk_commands(self):
+        vectors = json.loads((Path(__file__).parent / 'fixtures/global-settings-vendor.json').read_text())
+        seen = set()
+        for vector in vectors:
+            name, value = vector['name'], vector['value']
+            with self.subTest(name=name, value=value):
+                packet = setting_packet(name,value)
+                expected = bytes.fromhex(vector['hex'])
+                self.assertEqual(packet[:packet[3]+3], expected)
+                self.assertNotIn((name,value),seen)
+                seen.add((name,value))
+        self.assertEqual(seen,{(name,value) for name,item in SETTINGS.items()
+                               for value,_ in item.choices})
+
     def test_parse_flags_and_scalar_fields(self):
         data = parse_status(status())
         self.assertEqual(data['turbo'], dict(supported=True, value=True))

@@ -421,3 +421,19 @@ geometry/device rejection, profile changes before Apply, and UI control states.
 The Default page was rendered offscreen at 1280×1080 and inspected. Neither the
 installed app nor the booted image changed. Physical animation and persistence
 tests remain pending; this change is newer than the image pinned to `9fe53f9`.
+
+
+### Global-setting SDK command comparison
+
+2026-10-09: The new offline reference harness invokes Space Station 4.2.0.9's
+actual NewXInput command factories. All 28 combinations exposed by our global
+settings page match its command bodies, including length, payload and checksum.
+The committed fixture covers every offered choice; SDK endpoint selection and
+USB padding are excluded from this comparison. No device is opened by the harness.
+
+Following the official report-rate setting through the renderer, Electron IPC,
+Windows service and SDK confirmed that it sends its numeric value unchanged.
+The renderer explicitly shows it only for Vader 4 (`f4`). We therefore keep it
+read-only on Vader 5 rather than adding a control the official app does not offer.
+Firmware behavior, off/on persistence and USB polling measurements still need
+hardware. The added reference test passes; it does not replace those tests.

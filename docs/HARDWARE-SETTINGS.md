@@ -58,19 +58,30 @@ Commands 17, 15 and 16 change sleep, precision and sensitivity respectively
 (command numbers here are hexadecimal). Precision codes 1/2/3/4/5 represent
 8/10/12/9/11 bit. The UI's Fast/Medium/Slow values are 14/17/19.
 
-### Report rate is read-only
+### Report rate is not offered for Vader 5
 
 The SDK enum maps 1/2/4/8 to 1000/500/250/125 Hz, but the official UI sends
 1/2/3/4 for those labels and only shows that control for Vader 4 (`f4`). We do not
 send command 14 to Vader 5 or claim its raw code measures the actual input rate.
+Tracing the settings event through Electron IPC, the Windows service and the
+SDK command factory confirmed that the value is forwarded unchanged: there is
+no hidden conversion that reconciles the labels. This is not a missing Vader 5
+control from the official settings page.
 The passive analog test separately counts received native reports per second.
 
 ## Validation status
 
-The candidate passes 97 tests on the K17, including field preservation, exact
+The global-settings checks include field preservation, exact
 packet framing, unsupported/unknown values, stale snapshots, backup failure,
 missing acknowledgments, controller navigation and the 1080p page layout. The
-new page was visually inspected offscreen with simulated status data.
+page was visually inspected offscreen with simulated status data.
+
+The [command reference harness](../experimental/settings-reference/README.md)
+uses the actual vendor SDK to generate all 28 supported setting/value pairs.
+Every command body, including length and checksum, matches our encoder. The
+fixture coverage test also rejects a new UI choice without a corresponding
+reference case. These checks run without hardware; they do not validate the
+firmware’s behavior or onboard persistence.
 
 No new global-setting command has been sent to hardware and this candidate is
 not installed in the running image. To validate each supported setting:

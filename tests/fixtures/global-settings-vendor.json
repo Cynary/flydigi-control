@@ -1,0 +1,142 @@
+[
+  {
+    "name": "profile_hotkeys",
+    "value": false,
+    "hex": "5aa51304010018"
+  },
+  {
+    "name": "profile_hotkeys",
+    "value": true,
+    "hex": "5aa51304010119"
+  },
+  {
+    "name": "home_button",
+    "value": false,
+    "hex": "5aa51304020019"
+  },
+  {
+    "name": "home_button",
+    "value": true,
+    "hex": "5aa5130402011a"
+  },
+  {
+    "name": "motion_filter",
+    "value": false,
+    "hex": "5aa5130403001a"
+  },
+  {
+    "name": "motion_filter",
+    "value": true,
+    "hex": "5aa5130403011b"
+  },
+  {
+    "name": "turbo",
+    "value": false,
+    "hex": "5aa5130404001b"
+  },
+  {
+    "name": "turbo",
+    "value": true,
+    "hex": "5aa5130404011c"
+  },
+  {
+    "name": "stick_filter",
+    "value": false,
+    "hex": "5aa5130405001c"
+  },
+  {
+    "name": "stick_filter",
+    "value": true,
+    "hex": "5aa5130405011d"
+  },
+  {
+    "name": "auto_calibration",
+    "value": false,
+    "hex": "5aa5130406001d"
+  },
+  {
+    "name": "auto_calibration",
+    "value": true,
+    "hex": "5aa5130406011e"
+  },
+  {
+    "name": "rebound",
+    "value": false,
+    "hex": "5aa5130407001e"
+  },
+  {
+    "name": "rebound",
+    "value": true,
+    "hex": "5aa5130407011f"
+  },
+  {
+    "name": "precision",
+    "value": 1,
+    "hex": "5aa515030119"
+  },
+  {
+    "name": "precision",
+    "value": 2,
+    "hex": "5aa51503021a"
+  },
+  {
+    "name": "precision",
+    "value": 3,
+    "hex": "5aa51503031b"
+  },
+  {
+    "name": "precision",
+    "value": 4,
+    "hex": "5aa51503041c"
+  },
+  {
+    "name": "precision",
+    "value": 5,
+    "hex": "5aa51503051d"
+  },
+  {
+    "name": "sensitivity",
+    "value": 14,
+    "hex": "5aa516030e27"
+  },
+  {
+    "name": "sensitivity",
+    "value": 17,
+    "hex": "5aa51603112a"
+  },
+  {
+    "name": "sensitivity",
+    "value": 19,
+    "hex": "5aa51603132c"
+  },
+  {
+    "name": "sleep",
+    "value": 0,
+    "hex": "5aa51703001a"
+  },
+  {
+    "name": "sleep",
+    "value": 1,
+    "hex": "5aa51703011b"
+  },
+  {
+    "name": "sleep",
+    "value": 5,
+    "hex": "5aa51703051f"
+  },
+  {
+    "name": "sleep",
+    "value": 15,
+    "hex": "5aa517030f29"
+  },
+  {
+    "name": "sleep",
+    "value": 60,
+    "hex": "5aa517033c56"
+  },
+  {
+    "name": "sleep",
+    "value": 180,
+    "hex": "5aa51703b4ce"
+  }
+]
