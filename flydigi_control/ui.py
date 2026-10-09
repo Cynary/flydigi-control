@@ -36,7 +36,8 @@ class FeatureOperation(QThread):
     def run(self):
         try:
             with ConfigurationDevice(self.path) as device:
-                device.info()
+                if self.name is None:
+                    device.info()
                 if self.name == 'third_party_control':
                     device.set_third_party_control(self.enabled)
                 elif self.name is not None:

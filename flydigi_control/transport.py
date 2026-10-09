@@ -102,6 +102,25 @@ class ConfigurationDevice:
             raise OSError('Incomplete HID write')
 
     def exchange(self, packet: bytes, timeout: float = 0.5) -> bytes:
+        try:
+            return self._exchange_once(packet, timeout)
+        except TimeoutError:
+            # Vader 5 Pro 7.1.5.0 suppresses consecutive identical queries,
+            # including across fd opens. Waiting 600 ms did not clear it;
+            # alternating read-only queries did. Never replay a setting write.
+            if packet not in (protocol.info_request(), protocol.request(0x03),
+                              protocol.request(0x10)):
+                raise
+            primer = protocol.request(0x03 if packet[2] != 0x03 else 0x01)
+            try:
+                self._exchange_once(primer, timeout)
+            except TimeoutError:
+                # The primer can itself be the last query sent by another
+                # client. Only the requested reply determines success.
+                pass
+            return self._exchange_once(packet, timeout)
+
+    def _exchange_once(self, packet: bytes, timeout: float) -> bytes:
         list(self._read())
         self.send(packet)
         deadline = time.monotonic() + timeout

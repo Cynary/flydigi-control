@@ -112,6 +112,22 @@ class ProtocolTests(unittest.TestCase):
                     device.send(protocol.request(0x11, *values))
             write.assert_not_called()
 
+    def test_read_timeout_uses_alternate_query_once(self):
+        device = ConfigurationDevice('unused')
+        wanted = protocol.info_request()
+        with patch.object(device, '_exchange_once', side_effect=[TimeoutError(), b'primer', b'reply']) as once:
+            self.assertEqual(device.exchange(wanted), b'reply')
+            self.assertEqual([c.args[0] for c in once.call_args_list],
+                             [wanted, protocol.request(3), wanted])
+        with patch.object(device, '_exchange_once', side_effect=TimeoutError()) as once:
+            with self.assertRaises(TimeoutError):
+                device.exchange(wanted)
+            self.assertEqual(once.call_count, 3)
+        with patch.object(device, '_exchange_once', side_effect=TimeoutError()) as once:
+            with self.assertRaises(TimeoutError):
+                device.exchange(protocol.request(0x13, 4, 1))
+            self.assertEqual(once.call_count, 1)
+
     def test_other_feature_writes_rejected(self):
         with patch('os.write') as write:
             with self.assertRaises(ValueError):

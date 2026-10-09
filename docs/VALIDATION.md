@@ -22,7 +22,7 @@ connect the receiver and turn the controller on. No driver or wake configuration
 was changed. Steam's bundled 64-bit SDL identifies as
 `SDL-release-3.4.0-1359-g70e9cc86d` (version API 3005000).
 
-Seventeen automated tests passed on the K17: independent button-bit decoding,
+Eighteen automated tests passed on the K17: independent button-bit decoding,
 USB identity filtering and wake capability extraction, zero report-ID framing,
 invalid command rejection, incomplete writes, acknowledgement filtering,
 feature capability/read-back behavior, and UI navigation/disconnected state.
@@ -82,6 +82,12 @@ The receiver's USB configuration has `bmAttributes=0x80`, without remote wake,
 and no device-level `power/wakeup` control. Controller-triggered USB wake is not
 established. Changing the parent hub policy alone is not evidence of support.
 
-Some immediate repeated queries did not receive replies. Configuration timeout
-handling needs further investigation with this firmware. No reset or firmware
-update was performed.
+Consecutive identical read queries received no reply, including after pauses
+of 20, 60, 150, 300 and 600 ms. Alternating identity, feature and mapping queries
+received replies in about 20–22 ms. The transport now makes one bounded retry
+following an alternate read-only query. It never retries setting writes.
+One initial trial also lost the alternate query's reply; that no longer prevents
+checking the requested query again. All 18 queries in the subsequent hardware
+run succeeded, including nine deliberate repeats. Most repeats took about
+546 ms; one took 1026 ms. This is evidence for query recovery, not a claim that
+wireless communication cannot fail. No reset or firmware update was performed.
