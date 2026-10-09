@@ -7,9 +7,9 @@ sees the physical controls.
 
 | Requirement | Evidence so far | Still needed |
 | --- | --- | --- |
-| M1–M4, C/Z, LM/RM, Fn, Turbo | Protocol locations match existing implementations; independent-bit parser tests pass | Capture presses from the actual controller, verify firmware and Steam Input mappings, decide Turbo behavior in enhanced mode |
-| LEDs | Color command framing and input validation tested | Actual color/brightness/off and reconnect persistence |
-| Steam Input | SDL supports native Flydigi and contains May 2026 transport fix | Detect controller once, verify all mappings, reconnect and rumble |
+| M1–M4, C/Z, LM/RM, Fn, Turbo | All ten captured from hardware; patched parser agrees. Steam events confirm M1–M4, C/Z, Fn and Turbo | LM/RM Steam events and actual binding test; Turbo reports a short pulse rather than a held state |
+| LEDs | Complete configuration readback passes; user confirmed corrected colors | Visual animation, brightness/off and reconnect persistence |
+| Steam Input | Native controller and patched SDL verified in Steam; Turbo mapping and physical events present | Bindings, reconnect and rumble |
 | Couch app | Runs on K17; offscreen rendering and navigation tests pass | Physical controller-only use, Steam shortcut, test alongside native Flydigi ownership |
 | Wake | Probe decodes USB remote-wake flag and ancestor wake settings | Receiver connected, descriptors and power policy, controller-triggered suspend/resume with timed fallback |
 | Image | DESTDIR installer ready | Pin validated repository revision in image, build and boot-test |
@@ -139,3 +139,30 @@ The app's current RGB/multicolor editor passes 26 tests on the K17. The app is
 installed and launched from its Steam shortcut. The user confirmed the corrected color looks better and that the test screen
 recognized every button. Flow animation still needs visual confirmation. LED uploads keep backups and
 verify the complete controller readback.
+
+## Steam physical events, 2026-10-08
+
+Recorded Steam's own controller-state notification feed alongside the app's
+second passive 60-second test (27,478 reports). The Steam capture has 102 state
+updates. Matching isolated presses confirm these inputs and their releases:
+
+| Physical button | Steam state |
+| --- | --- |
+| M1 | R5, bit 42 |
+| M2 | L5, bit 41 |
+| M3 | R4, bit 16 |
+| M4 | L4, bit 15 |
+| C | Bit 32 |
+| Z | Bit 33 |
+| Fn | Bit 36 |
+| Turbo | Capture/misc, bit 29 |
+
+The paddle labels above are Steam's labels, not the controller's printed labels.
+C, Z and Fn are present in the complete button bitfield even though this Steam
+notification does not provide named Boolean fields for them. Turbo produces the
+named `button_mute_capture` event. This verifies the patched driver is supplying
+physical Turbo presses to Steam, beyond just advertising a mapping.
+
+LM and RM were absent from both recordings in this particular run. Both were
+present in the first raw capture, but their Steam events still need confirmation.
+A Steam binding that triggers an application action is a separate remaining check.
