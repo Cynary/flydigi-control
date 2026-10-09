@@ -14,7 +14,7 @@ parser test does not establish that the corresponding control works on hardware.
 | Stick output | Candidate edits circle/rectangle and Default/Quick/Slow/Custom response, with center/edge controls and stored/proposed curve comparison | Hardware save test; negative compensation encoding; keyboard/mouse mapping editors |
 | Stick diagnostics | Candidate shows live XY, triggers, gyro, acceleration, native report rate and 32-sector circularity error | Hardware/UI check; original versus mapped output comparison and USB polling-rate test |
 | Triggers | Candidate edits travel range and per-side vibration amplitude, threshold and strength; one shared enable flag | Hardware response/save tests; native Steam Input interaction |
-| Motion | Gyro and acceleration decoded | Official motion mappings/sensitivity/smoothing options; visible sensor tests and streaming verification |
+| Motion | Raw gyro/acceleration diagnostics; candidate gyro-to-stick editor with activation, sensitivity and deadzone compensation | Hardware effect and persistence, two-button behavior, mouse path and streaming verification; hidden vendor smoothing fields are preserved |
 | Profiles | Active profile can be read; Fn shortcut control exists | Profile management, backups/import/export and safe save/restore |
 | Macros/Turbo | Extra Turbo button exposed; firmware shortcuts documented; candidate edits per-button rapid-fire rate and activation | Macro editor and firmware shortcut behavior validation |
 | Global settings | Candidate edits firmware filtering, automatic calibration, rebound suppression, precision, center sensitivity and sleep, with capability checks | Hardware behavior and persistence; report-rate writes need protocol clarification |
@@ -29,6 +29,9 @@ options and why report-rate changes remain read-only.
 
 The [onboard button editor](BUTTON-MAPPINGS.md) handles per-button outputs and
 rapid fire. Macro and PC-supplied keyboard/mouse mappings remain separate work.
+
+The [motion-mapping notes](MOTION-MAPPING.md) distinguish the controller’s
+gyro-to-stick feature from raw Steam Input motion and PC-generated mouse input.
 
 ## Circle and rectangle
 

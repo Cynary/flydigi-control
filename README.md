@@ -26,7 +26,8 @@ test and separate grip/trigger motor tests. These are candidates awaiting hardwa
 validation; they are not yet included in the published image. It also adds
 [global controller settings](docs/HARDWARE-SETTINGS.md) for filtering, automatic
 calibration, precision, center sensitivity and sleep, plus an
-[onboard button and rapid-fire editor](docs/BUTTON-MAPPINGS.md).
+[onboard button and rapid-fire editor](docs/BUTTON-MAPPINGS.md) and
+[gyro-to-stick mapping](docs/MOTION-MAPPING.md).
 
 ## Run
 

@@ -24,6 +24,10 @@ class UITests(unittest.TestCase):
         self.nav = patch('flydigi_control.ui.GamepadNavigation')
         self.nav.start()
         self.window = Window()
+        # Each test drives discovery/navigation explicitly. Background timer
+        # ticks during processEvents make mock counts and UI state race.
+        self.window.timer.stop()
+        self.window.discovery_timer.stop()
         self.window.show()
         self.app.processEvents()
 
@@ -207,6 +211,45 @@ class UITests(unittest.TestCase):
         self.assertIn('macro',panel.details.text())
         panel.source.setCurrentIndex(1)
         self.assertTrue(panel.kind.isEnabled())
+        self.window.device_changed()
+        self.assertIsNone(panel.mapping)
+        self.assertFalse(panel.save.isEnabled())
+
+    def test_motion_editor_navigation_and_unchanged_read(self):
+        from test_motion_mapping import profile
+        panel=self.window.motion_panel
+        self.window.pages.setCurrentIndex(11)
+        panel.set_available(True);panel.load(dict(mapping=profile(),profile=0))
+        self.assertFalse(panel.save.isEnabled())
+        self.assertFalse(panel.fields['key'].isEnabled())
+        panel.fields['target'].setCurrentIndex(2)
+        self.assertTrue(panel.fields['key'].isEnabled())
+        self.assertFalse(panel.fields['second'].isEnabled())
+        self.assertTrue(panel.save.isEnabled())
+        panel.fields['activation'].setCurrentIndex(1)
+        self.assertTrue(panel.fields['second'].isEnabled())
+        panel.fields['sensitivity'].setFocus()
+        self.press(Qt.Key.Key_Right)
+        self.assertEqual(panel.fields['sensitivity'].value(),26)
+        self.assertIsNone(self.window.worker)
+        for _ in range(3):self.app.processEvents()
+        self.assertLessEqual(self.window.minimumSizeHint().height(),1080)
+        panel.back.setFocus();self.press(Qt.Key.Key_Return)
+        self.assertEqual(self.window.pages.currentIndex(),1)
+
+    def test_motion_editor_rejects_pc_mouse_and_invalid_activation(self):
+        from test_motion_mapping import profile
+        panel=self.window.motion_panel;panel.set_available(True)
+        m=bytearray(profile());m[137]=3
+        panel.load(dict(mapping=bytes(m),profile=0))
+        self.assertFalse(panel.save.isEnabled())
+        self.assertFalse(panel.fields['target'].isEnabled())
+        self.assertIn('PC-side',panel.details.text())
+        panel.load(dict(mapping=profile(),profile=0))
+        panel.fields['target'].setCurrentIndex(2)
+        panel.fields['key'].setCurrentIndex(panel.fields['key'].findData(255))
+        self.assertFalse(panel.save.isEnabled())
+        self.assertIn('activation',panel.result.text())
         self.window.device_changed()
         self.assertIsNone(panel.mapping)
         self.assertFalse(panel.save.isEnabled())

@@ -27,6 +27,12 @@ are superseded by this table and the later results.
 
 ## Current evidence
 
+The motion candidate adds onboard gyro-to-left/right-stick mapping, activation
+buttons, sensitivity and deadzone compensation. It preserves asymmetric X/Y
+sensitivity unless edited, plus all hidden smoothing fields. Its 1080p page was
+visually checked using the saved profile; no hardware writes were sent.
+[Motion format and pending checks](MOTION-MAPPING.md).
+
 The onboard button-mapping candidate supports ordinary gamepad outputs and
 rapid fire for the 24 buttons editable in the official app. Tests cover every
 source/target pair and profile formats 3.0–3.2, with all other bytes preserved.
@@ -38,9 +44,9 @@ calibration, rebound suppression, precision, center sensitivity and sleep contro
 Its packet and UI checks pass, but these new commands have not been sent to hardware.
 [Protocol details and remaining checks](HARDWARE-SETTINGS.md).
 
-2026-10-09: The `onboard-settings` candidate passes 107 protocol, persistence,
+2026-10-09: The `onboard-settings` candidate passes 117 protocol, persistence,
 diagnostic and Qt tests on the K17. Offscreen previews of the stick settings and
-analog/motor/response/trigger/grip/global-settings/button-mapping pages were inspected, using simulated input or
+analog/motor/response/trigger/grip/global-settings/button/motion-mapping pages were inspected, using simulated input or
 the saved read-only profile. Curve samples
 match 12 numeric cases from the official frontend. Tests cover stale
 profile rejection, preservation of unrelated settings, backup failure, and an
