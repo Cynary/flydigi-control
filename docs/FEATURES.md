@@ -7,7 +7,7 @@ parser test does not establish that the corresponding control works on hardware.
 | Area | Current state | Remaining work |
 | --- | --- | --- |
 | Buttons | All ten extras verified through Steam Input; candidate onboard editor supports 24 button mappings and rapid fire | Hardware mapping/output/persistence checks; keyboard/mouse and multifunction mapping editors |
-| Lighting | Colors verified, effect uploads read back | Flow/brightness/off visual checks; onboard persistence power-cycle test |
+| Lighting | Colors verified, effect uploads read back; candidate Default preset matches vendor data for all four profiles | Flow/brightness/off visual checks; onboard persistence power-cycle test |
 | Persistence | Guarded candidate saves the active profile after backing it up and checking mappings | Verify off/on, receiver replug and reboot with the app closed; check feature switches individually |
 | Grip motors | Separate SDL left/right values; Identify physically confirmed; app candidate has per-motor tests and saved enable/strength controls | Physical validation of tests and saved settings |
 | Trigger motors | SDL candidate preserves all four levels; app candidate tests each motor and all four together | Physical tests, then streaming-path verification |

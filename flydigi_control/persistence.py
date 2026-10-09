@@ -36,8 +36,14 @@ def _backup(folder, data):
 
 
 def apply_lighting(device, mode, colors, brightness, period, backup_dir):
-    return apply_configuration(device, backup_dir,
-        lighting_update=lambda original: make_blob(original, mode, colors, brightness, period))
+    profile = None
+    if mode == 7:
+        if device.info().device_id != 130:
+            raise ValueError('Default lighting is only available for Vader 5 Pro device type 130')
+        profile, _ = device.profile_state()
+    return apply_configuration(device, backup_dir, expected_profile=profile,
+        lighting_update=lambda original: make_blob(original, mode, colors, brightness, period,
+                                                   factory_profile=profile))
 
 
 def apply_stick_shape(device, previous_mapping, side, shape, backup_dir, *, expected_profile=None):

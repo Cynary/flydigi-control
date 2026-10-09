@@ -36,9 +36,29 @@ The temporary `F5` color override has been replaced in the UI by the normal ligh
 
 The tested wireless controller, firmware 7.1.5.0, reports **10 LED zones and 10 animation frames**, a 320-byte version-3 configuration. Do not hardcode 12 zones from the service's generic animation table. Reading hardware geometry avoids that mismatch.
 
-Steady, breathing and gradient uploads passed byte-for-byte readback on hardware. Visual animation and color checks remain necessary. The UI offers those modes, Off, Flow, the six color shortcuts, RGB sliders and up to five colors for Breathing and Gradient. Hex values are displayed alongside each color. Factory-default restoration is not implemented.
+Steady, breathing and gradient uploads passed byte-for-byte readback on hardware. Visual animation and color checks remain necessary. The candidate UI offers those modes, Off, Flow, Default, the six color shortcuts, RGB sliders and up to five colors for Breathing and Gradient. Hex values are displayed alongside each color.
 
 Flow uses the numeric frames from the service’s generic preset, cropped to the LED count reported by the controller. It sets the loop end to the last valid frame. This adaptation still needs a physical animation check; it is not a claim of identical factory lighting.
+
+### Default lighting
+
+Default uses the animation from Space Station 4.2.0.9's
+`Configs/Controller/f5/default/default_mapping_130.dat`. Profile 1 has its own
+animation; profiles 2–4 use the first ten LED zones of the Flow preset. All four
+have ten frames, a loop from 0 through 9, mode 7, 20% brightness and period 4.
+The editor lets you change brightness and speed while keeping the preset colors.
+
+This changes only lighting in the active profile. It does not restore factory
+button mappings, calibration or other settings. We preserve the existing grip-sync
+and reserved fields; the vendor files differ in grip-sync between profiles, which
+is separate from the Default animation. Other device IDs or LED geometries are
+rejected rather than receiving the Vader 5 preset.
+
+The [reference harness](../experimental/lighting-reference/README.md) reads all four
+profiles with Flydigi's own protobuf parser and lighting serializer. Our animation
+bytes match each serialized result. The tests also check that a profile change
+stops Apply before any write. Physical appearance and power-cycle persistence
+still need a controller test; the new option is not installed yet.
 
 Each UI upload first saves a backup beneath `~/.local/state/flydigi-control/`. The persistence candidate also backs up the complete active mapping profile and sends one onboard-save command after verifying that the lighting changed and the mappings did not. This candidate is not yet installed or validated across controller power-off. Missing acknowledgements for indexed LED chunks are retried once after a read-only query, followed by whole-configuration verification. A missing acknowledgement is not itself proof that a write failed.
 

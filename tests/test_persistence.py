@@ -207,3 +207,24 @@ class PersistenceTests(unittest.TestCase):
             apply_mapping_edit(self.device,original,lambda value:value,self.tmp.name,expected_profile=0)
         self.assertEqual(self.device.writes,[])
         self.assertEqual(list(Path(self.tmp.name).iterdir()),[])
+
+    def test_default_uses_active_profile_and_keeps_other_settings(self):
+        from flydigi_control.lighting import make_blob
+        before = bytes(self.device.mapping)
+        expected = make_blob(self.device.lighting,7,[],20,4,factory_profile=1)
+        apply_lighting(self.device,7,[],20,4,self.tmp.name)
+        self.assertEqual(self.device.lighting,expected)
+        self.assertEqual(self.device.mapping[:225],before[:225])
+        self.assertEqual(self.device.mapping[227:],before[227:])
+        self.assertEqual([w[0] for w in self.device.writes],['lighting','save'])
+
+    def test_default_rejects_other_model_or_profile_change_before_writing(self):
+        from dataclasses import replace
+        other = replace(self.device.info(), device_id=128)
+        with patch.object(self.device,'info',return_value=other):
+            with self.assertRaises(ValueError):
+                apply_lighting(self.device,7,[],20,4,self.tmp.name)
+        with patch.object(self.device,'profile_state',side_effect=[(1,self.device.versions),(2,self.device.versions)]):
+            with self.assertRaisesRegex(RuntimeError,'Active profile changed'):
+                apply_lighting(self.device,7,[],20,4,self.tmp.name)
+        self.assertEqual(self.device.writes,[])

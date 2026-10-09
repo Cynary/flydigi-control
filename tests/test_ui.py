@@ -318,6 +318,18 @@ class UITests(unittest.TestCase):
         self.assertEqual(len(self.window.colors),1)
         self.assertFalse(self.window.add_color.isEnabled())
 
+    def test_default_lighting_has_fixed_colors_and_adjustable_speed(self):
+        self.window.effect.setCurrentIndex(self.window.effect.findData(7))
+        self.assertEqual(self.window.brightness.value(),20)
+        self.assertEqual(self.window.period.value(),4)
+        self.assertTrue(self.window.period.isEnabled())
+        self.assertFalse(self.window.color_slot.isEnabled())
+        self.assertFalse(self.window.add_color.isEnabled())
+        self.assertFalse(self.window.remove_color.isEnabled())
+        self.assertTrue(all(not slider.isEnabled() for slider in self.window.rgb_sliders))
+        self.window.effect.setCurrentIndex(self.window.effect.findData(5))
+        self.assertTrue(self.window.color_slot.isEnabled())
+
     def test_device_change_clears_feature_state(self):
         self.window.feature_values = {'turbo': {'supported': True, 'enabled': True}}
         self.window.device_changed()

@@ -40,7 +40,7 @@ python3 -m flydigi_control
 Add the installed `flydigi-control` executable as a non-Steam game to launch it
 from Big Picture. Use the D-pad or left stick to navigate, A to select and B to
 exit. Keyboard navigation also works. Lighting modes include Steady, Breathing,
-Gradient, Flow and Off, with RGB, brightness and cycle controls. The installed release applies temporary lighting. This branch contains an
+Gradient, Flow, Default and Off, with RGB, brightness and cycle controls. The installed release applies temporary lighting. This branch contains an
 onboard-saving candidate that backs up the active profile and checks that its
 mappings stay intact; controller power-cycle validation is still pending. See
 [lighting details and validation](docs/LIGHTING.md).

@@ -196,7 +196,7 @@ class Window(QWidget):
         layout = QVBoxLayout(lighting_page)
         self.pages.addWidget(lighting_page)
         self.effect = QComboBox()
-        for label, mode in [('Steady', 5), ('Breathing', 2), ('Gradient', 3), ('Flow', 1)]:
+        for label, mode in [('Steady', 5), ('Breathing', 2), ('Gradient', 3), ('Flow', 1), ('Default', 7)]:
             self.effect.addItem(label, mode)
         layout.addWidget(self.effect)
         self.effect.currentIndexChanged.connect(self.effect_changed)
@@ -469,12 +469,12 @@ class Window(QWidget):
         self.color_slot.blockSignals(False)
         self.load_color()
         mode = self.effect.currentData()
-        editable = mode != 1
+        editable = mode not in (1, 7)
         for widget in [self.color_slot, *self.color_buttons, *self.rgb_sliders]:
             widget.setEnabled(editable)
         self.add_color.setEnabled(mode in (2, 3) and len(self.colors) < 5)
         self.remove_color.setEnabled(mode in (2, 3) and len(self.colors) > (2 if mode == 3 else 1))
-        self.period.setEnabled(mode in (1, 2, 3))
+        self.period.setEnabled(mode in (1, 2, 3, 7))
 
     def load_color(self, unused=None):
         if not hasattr(self, 'rgb_sliders') or self.color_slot.currentIndex() < 0:
@@ -505,8 +505,8 @@ class Window(QWidget):
             self.colors = self.colors[:1]
         elif mode == 3 and len(self.colors) < 2:
             self.colors = list(GRADIENT)
-        self.period.setValue(4 if mode == 1 else 15)
-        self.brightness.setValue(20 if mode == 1 else 30 if mode == 5 else 50)
+        self.period.setValue(4 if mode in (1, 7) else 15)
+        self.brightness.setValue(20 if mode in (1, 7) else 30 if mode == 5 else 50)
         self.refresh_colors()
 
     def append_color(self):

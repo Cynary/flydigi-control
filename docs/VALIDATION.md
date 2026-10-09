@@ -60,7 +60,7 @@ calibration, rebound suppression, precision, center sensitivity and sleep contro
 Its packet and UI checks pass, but these new commands have not been sent to hardware.
 [Protocol details and remaining checks](HARDWARE-SETTINGS.md).
 
-2026-10-09: The `onboard-settings` candidate passes 212 protocol, persistence,
+2026-10-09: The `onboard-settings` candidate passes 218 protocol, persistence,
 diagnostic and Qt tests on the K17. Offscreen previews of the stick settings and
 analog/motor/response/trigger/grip/global-settings/button/motion-mapping/macro pages were inspected, using simulated input or
 the saved read-only profile. Curve samples
@@ -404,3 +404,20 @@ export page was rendered and visually inspected at 1280×1080. It fits with the
 result path displayed. Space Station library-index registration and physical
 macro execution remain unverified. This change is newer than the unpublished
 October 9 image built with app commit `9fe53f9`; it is not installed.
+
+
+### Profile-specific Default lighting
+
+2026-10-09: The candidate now offers Default lighting for device type 130. The
+reference harness parsed the four profiles in Space Station 4.2.0.9's
+`default_mapping_130.dat` (SHA-256
+`a6136d529b21d3f611828474e37de23687bd3c9860a7e99c09fd547dd0527c5e`)
+using its own SDK. Each animation matches the SDK-serialized bytes. Profile 1
+has a distinct animation; profiles 2–4 share the ten-zone Flow animation.
+
+All 218 tests pass on the K17, including the Qt tests. The new cases cover all
+four presets, brightness/speed edits, preserved header fields, unsupported
+geometry/device rejection, profile changes before Apply, and UI control states.
+The Default page was rendered offscreen at 1280×1080 and inspected. Neither the
+installed app nor the booted image changed. Physical animation and persistence
+tests remain pending; this change is newer than the image pinned to `9fe53f9`.
