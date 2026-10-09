@@ -84,3 +84,16 @@ USB descriptors and completing a real suspend/wake test.
 
 The new code was written with Codex. Protocol and lighting code is adapted from
 Tux InVader; see [THIRD_PARTY.md](THIRD_PARTY.md) and the GPL-3.0 [license](LICENSE).
+
+### Enable the extended input interface
+
+Under **Controller settings**, read the current settings, then enable
+**Native Steam Input**. This is Flydigi's permission for Steam to take over
+mapping; it leaves the reporting flags alone. Reconnect the receiver afterward
+so Steam detects it again. While Steam owns the controller, its mappings take
+precedence over the controller's onboard profiles.
+
+The command-line equivalent is `python3 -m flydigi_control --native-input on`.
+Use `--mapping-status` to read the permission and current owner.
+Native detection has been checked on firmware 7.1.5.0; complete Steam button
+mapping and duplicate-interface handling are still being validated.

@@ -37,9 +37,14 @@ class FeatureOperation(QThread):
         try:
             with ConfigurationDevice(self.path) as device:
                 device.info()
-                if self.name is not None:
+                if self.name == 'third_party_control':
+                    device.set_third_party_control(self.enabled)
+                elif self.name is not None:
                     device.set_feature(self.name, self.enabled)
-                self.values.emit(device.features())
+                values = device.features()
+                values['third_party_control'] = {'supported': True,
+                    'enabled': device.mapping_status()['third_party_control']}
+                self.values.emit(values)
                 self.result.emit(True, 'Settings read back from the controller.')
         except (OSError, ValueError, RuntimeError) as error:
             self.result.emit(False, str(error))
@@ -129,6 +134,11 @@ class Window(QWidget):
         self.read_settings = QPushButton('Read current settings')
         self.read_settings.clicked.connect(lambda: self.feature_operation())
         settings.addWidget(self.read_settings)
+        self.native = QPushButton('Native Steam Input · read settings first')
+        self.native.clicked.connect(lambda: self.toggle_feature('third_party_control'))
+        settings.addWidget(self.native)
+        self.label(settings, 'Allow Steam to map the extra buttons. Controller profiles are bypassed\n'
+                            'while Steam owns it. Reconnect the receiver after changing this.', 'muted')
         self.turbo = QPushButton('Turbo · read settings first')
         self.turbo.clicked.connect(lambda: self.toggle_feature('turbo'))
         settings.addWidget(self.turbo)
@@ -145,7 +155,7 @@ class Window(QWidget):
         self.label(root_layout, 'D-pad / stick: navigate    A: select    B: return to Steam', 'eyebrow')
         self.controls = [self.device_box, self.lighting_tab, self.settings_tab,
                          *self.color_buttons, self.brightness, self.apply, self.off,
-                         self.read_settings, self.turbo, self.hotkeys]
+                         self.read_settings, self.native, self.turbo, self.hotkeys]
         for control in self.controls:
             control.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
         try:
@@ -183,8 +193,8 @@ class Window(QWidget):
             for d in devices:
                 self.device_box.addItem(d['name'] + ' · ' + d['path'], d['path'])
             index = self.device_box.findData(old)
-            if index >= 0:
-                self.device_box.setCurrentIndex(index)
+            if devices:
+                self.device_box.setCurrentIndex(index if index >= 0 else 0)
             self.device_box.blockSignals(False)
             self.feature_values = {}
         self.show_device()
@@ -195,10 +205,11 @@ class Window(QWidget):
         self.off.setEnabled(bool(self.devices) and not busy)
         self.device_box.setEnabled(bool(self.devices) and not busy)
         self.read_settings.setEnabled(bool(self.devices) and not busy)
-        for button, name in ((self.turbo, 'turbo'), (self.hotkeys, 'profile_hotkeys')):
+        for button, name in ((self.native, 'third_party_control'), (self.turbo, 'turbo'), (self.hotkeys, 'profile_hotkeys')):
             value = self.feature_values.get(name)
             button.setEnabled(bool(self.devices) and not busy and bool(value and value['supported']))
-            label = 'Turbo' if name == 'turbo' else 'Fn profile shortcuts'
+            label = {'turbo': 'Turbo', 'profile_hotkeys': 'Fn profile shortcuts',
+                     'third_party_control': 'Native Steam Input'}[name]
             state = ('On' if value['enabled'] else 'Off') if value else 'read settings first'
             if value and not value['supported']:
                 state = 'not supported by this firmware'

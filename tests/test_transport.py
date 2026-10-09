@@ -99,6 +99,19 @@ class ProtocolTests(unittest.TestCase):
                 device.set_feature('turbo', True)
             exchange.assert_not_called()
 
+    def test_mapping_permission_preserves_other_stream_flags(self):
+        device = ConfigurationDevice('unused')
+        with patch.object(device, 'info'), patch.object(device, 'exchange') as exchange, \
+             patch.object(device, 'mapping_status', return_value={'third_party_control': True}):
+            device.set_third_party_control(True)
+            self.assertEqual(exchange.call_args.args[0][2:9],
+                             bytes([0x11, 7, 255, 255, 255, 255, 1]))
+        with patch('os.write') as write:
+            for values in ((1, 255, 255, 255, 1), (255, 0, 255, 255, 1), (255, 255, 255, 255, 2)):
+                with self.assertRaises(ValueError):
+                    device.send(protocol.request(0x11, *values))
+            write.assert_not_called()
+
     def test_other_feature_writes_rejected(self):
         with patch('os.write') as write:
             with self.assertRaises(ValueError):

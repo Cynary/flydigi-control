@@ -22,7 +22,7 @@ connect the receiver and turn the controller on. No driver or wake configuration
 was changed. Steam's bundled 64-bit SDL identifies as
 `SDL-release-3.4.0-1359-g70e9cc86d` (version API 3005000).
 
-Fifteen automated tests passed on the K17: independent button-bit decoding,
+Seventeen automated tests passed on the K17: independent button-bit decoding,
 USB identity filtering and wake capability extraction, zero report-ID framing,
 invalid command rejection, incomplete writes, acknowledgement filtering,
 feature capability/read-back behavior, and UI navigation/disconnected state.
@@ -66,3 +66,22 @@ that the command does not wait for an acknowledgement.
 - [Tux InVader protocol and lighting implementation](https://github.com/TJLawInOrbit/tux-invader)
 - [Configuration protocol research](https://github.com/rR6kULhc5xgS/flydigi-vader-pro-5-ctl)
 - [Linux USB power management](https://www.kernel.org/doc/html/latest/driver-api/usb/power-management.html)
+
+## First receiver check
+
+Firmware 7.1.5.0 identified successfully over the wireless configuration
+interface. Turbo and Fn profile shortcuts were supported but disabled.
+The native mapping permission was also disabled: command 0x10 returned byte 9
+as zero, which makes SDL reject the native interface. After enabling that flag
+with command 0x11 (leaving the four reporting flags unchanged), read-back showed
+it enabled and a fresh probe using Steam's bundled SDL detected the native
+Vader 5 Pro. The same probe also detected the generic Xbox interface; duplication
+and physical button mapping are not yet validated.
+
+The receiver's USB configuration has `bmAttributes=0x80`, without remote wake,
+and no device-level `power/wakeup` control. Controller-triggered USB wake is not
+established. Changing the parent hub policy alone is not evidence of support.
+
+Some immediate repeated queries did not receive replies. Configuration timeout
+handling needs further investigation with this firmware. No reset or firmware
+update was performed.

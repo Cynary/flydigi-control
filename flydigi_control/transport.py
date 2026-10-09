@@ -53,7 +53,7 @@ class ConfigurationDevice:
     Steam's reports. No test-mode, acquire, reset, profile-switch or flash command
     is sent. The advisory lock serializes our own configuration clients.
     """
-    ALLOWED = {protocol.CMD_INFO, 0x03, 0x13, protocol.CMD_PROFILE_VERSIONS,
+    ALLOWED = {protocol.CMD_INFO, 0x03, 0x10, 0x11, 0x13, protocol.CMD_PROFILE_VERSIONS,
                protocol.CMD_LED_READ, protocol.CMD_LED_WRITE_START,
                protocol.CMD_LED_WRITE_PACK, protocol.CMD_LED_TEST_COLOR}
 
@@ -94,6 +94,8 @@ class ConfigurationDevice:
             raise ValueError('Unsupported configuration command')
         if packet[2] == 0x13 and (packet[3] != 4 or packet[4] not in (1, 4) or packet[5] not in (0, 1)):
             raise ValueError('Only Turbo and Fn profile hotkeys are supported')
+        if packet[2] == 0x11 and (packet[3:8] != bytes([7, 255, 255, 255, 255]) or packet[8] not in (0, 1)):
+            raise ValueError('Only third-party mapping permission may be changed')
         # Linux hidraw requires a zero report-ID byte for unnumbered reports.
         output = b'\x00' + packet
         if os.write(self.fd, output) != len(output):
@@ -130,6 +132,21 @@ class ConfigurationDevice:
         # Instant color has no acknowledgement handler in the vendor SDK.
         # A successful write confirms delivery to USB, not the visible result.
         self.send(protocol.led_test_color(red, green, blue))
+
+    def mapping_status(self):
+        reply = self.exchange(protocol.request(0x10))
+        return {'third_party_control': reply[9] == 1,
+                'owner': reply[10:30].split(b'\x00')[0].decode('ascii', 'replace'),
+                'controller_data': reply[5] == 1, 'raw_data': reply[6] == 1}
+
+    def set_third_party_control(self, enabled: bool):
+        if type(enabled) is not bool:
+            raise ValueError('Choose a boolean state')
+        self.info()
+        # 0xff leaves each stream setting alone; Steam acquires it itself.
+        self.exchange(protocol.request(0x11, 255, 255, 255, 255, int(enabled)))
+        if self.mapping_status()['third_party_control'] != enabled:
+            raise RuntimeError('Controller did not retain third-party mapping permission')
 
     def features(self):
         reply = self.exchange(protocol.request(0x03))

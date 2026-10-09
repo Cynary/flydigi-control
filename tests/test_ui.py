@@ -37,8 +37,16 @@ class UITests(unittest.TestCase):
         self.window.keyPressEvent(QKeyEvent(QKeyEvent.Type.KeyPress, key, Qt.KeyboardModifier.NoModifier))
 
     def test_no_device_disables_writes(self):
-        for button in (self.window.apply, self.window.off, self.window.turbo, self.window.hotkeys):
+        for button in (self.window.apply, self.window.off, self.window.turbo, self.window.hotkeys, self.window.native):
             self.assertFalse(button.isEnabled())
+
+    def test_first_receiver_is_selected(self):
+        device = {'path': '/dev/hidraw99', 'name': 'Vader 5 Pro',
+                  'remote_wake_advertised': False}
+        with patch('flydigi_control.ui.discover', return_value=[device]):
+            self.window.refresh()
+        self.assertEqual(self.window.device_box.currentData(), '/dev/hidraw99')
+        self.assertTrue(self.window.read_settings.isEnabled())
 
     def test_navigation_stays_on_visible_page(self):
         self.window.settings_tab.setFocus()

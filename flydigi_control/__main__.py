@@ -10,6 +10,8 @@ def main():
     parser.add_argument('--probe', action='store_true', help='Read USB identity and wake support without writing commands')
     parser.add_argument('--info', action='store_true', help='Query controller identity')
     parser.add_argument('--features', action='store_true', help='Read Turbo and Fn profile hotkey settings')
+    parser.add_argument('--native-input', choices=('on', 'off'), help='Allow Steam to map the extra buttons; reconnect receiver afterward')
+    parser.add_argument('--mapping-status', action='store_true', help='Read third-party mapping permission and owner')
     parser.add_argument('--turbo', choices=('on', 'off'), help='Enable or disable controller-side Turbo chords')
     parser.add_argument('--profile-hotkeys', choices=('on', 'off'), help='Enable or disable Fn+A/B/X/Y profile selection')
     parser.add_argument('--monitor', type=float, metavar='SECONDS', help='Passively record button changes as JSON lines; no input-mode changes')
@@ -20,7 +22,7 @@ def main():
     if args.probe:
         print(json.dumps(discover(), indent=2))
         return
-    if args.info or args.color or args.features or args.turbo or args.profile_hotkeys or args.monitor is not None:
+    if args.info or args.color or args.features or args.mapping_status or args.native_input or args.turbo or args.profile_hotkeys or args.monitor is not None:
         devices = discover()
         if not args.device and len(devices) != 1:
             parser.error('Connect one Vader 5 Pro or select --device from --probe output')
@@ -32,6 +34,11 @@ def main():
         with ConfigurationDevice(args.device or devices[0]['path']) as device:
             if args.info:
                 print(json.dumps(asdict(device.info()), indent=2))
+            if args.native_input:
+                device.set_third_party_control(args.native_input == 'on')
+                print('Native mapping permission saved. Reconnect the receiver for Steam to redetect it.')
+            if args.mapping_status:
+                print(json.dumps(device.mapping_status(), indent=2))
             if args.features:
                 print(json.dumps(device.features(), indent=2))
             for name, setting in (('turbo', args.turbo), ('profile_hotkeys', args.profile_hotkeys)):
