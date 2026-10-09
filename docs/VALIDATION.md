@@ -7,12 +7,20 @@ sees the physical controls.
 
 | Requirement | Evidence so far | Still needed |
 | --- | --- | --- |
-| M1–M4, C/Z, LM/RM, Fn, Turbo | All ten captured from hardware; patched parser agrees. Steam events confirm M1–M4, C/Z, Fn and Turbo | LM/RM Steam events and actual binding test; Turbo reports a short pulse rather than a held state |
-| LEDs | Complete configuration readback passes; user confirmed corrected colors | Visual animation, brightness/off and reconnect persistence |
-| Steam Input | Native controller and patched SDL verified in Steam; Turbo mapping and physical events present | Bindings, reconnect and rumble |
-| Couch app | Runs on K17; offscreen rendering and navigation tests pass | Physical controller-only use, Steam shortcut, test alongside native Flydigi ownership |
-| Wake | Probe decodes USB remote-wake flag and ancestor wake settings | Receiver connected, descriptors and power policy, controller-triggered suspend/resume with timed fallback |
-| Image | DESTDIR installer ready | Pin validated repository revision in image, build and boot-test |
+| M1–M4, C/Z, LM/RM, Fn, Turbo | All ten captured from hardware; patched parser agrees. Steam events confirm M1–M4, C/Z, Fn and Turbo | LM/RM Steam events and an assigned-action test; Turbo reports a short pulse rather than a held state |
+| LEDs | Steady, breathing and gradient configurations pass complete readback; user confirmed corrected colors | Visual animation and brightness/off checks |
+| Steam Input | All ten extra controls accept bindings in Steam's editor. Native/fallback transitions expose one controller and release stale button state | Physical binding delivery and controller reconnect |
+| Couch app | Installed image app launches through its Steam shortcut; user operated the color picker and button test; automated navigation checks pass | Controller-only reconnect/navigation check; navigation polish remains |
+| Wake | Receiver `37d7:2401` reports `bmAttributes=0x80`, without remote wake; Linux has no device wake control | No supported controller-wake method found; no wake policy is installed |
+| Image | Full candidate built and booted; Steam maps its packaged SDL with no local library override | Remaining physical checks before promoting the public update channel |
+
+Lighting changes are deliberately temporary: controller power-off restores its
+stored lighting. Persistence is not implemented through a firmware flash write.
+
+The booted candidate and exact source revisions are recorded in Moonmachine's
+[Flydigi integration notes](https://github.com/Cynary/bazzite-k17/blob/flydigi-integration/docs/FLYDIGI.md).
+The sections below preserve the individual experiments; earlier pending checks
+are superseded by this table and the later results.
 
 ## Current evidence
 
@@ -166,3 +174,23 @@ physical Turbo presses to Steam, beyond just advertising a mapping.
 LM and RM were absent from both recordings in this particular run. Both were
 present in the first raw capture, but their Steam events still need confirmation.
 A Steam binding that triggers an application action is a separate remaining check.
+
+
+## Native/fallback handoff and image boot
+
+SDL kept the Xbox interface visible when native mode took over, even though the
+receiver stopped sending Xbox reports. Steam retained a held A state in that
+entry alongside the native controller. The Linux fix removes the fallback with
+SDL's normal button-release/recentering path and rediscovers it when native
+permission is disabled. Live permission off/on checks showed one controller in
+each mode, with no Steam restart. This does not replace a physical reconnect test.
+
+The SDL fork includes the actual Linux reconciliation function's regression
+harness and the 12,289-case button parser replay. The full image passed these,
+28 app tests, the existing Gamescope/setup checks and bootc validation, then booted
+successfully. Steam mapped the image's replacement SDL and launched the image
+app through its shortcut; temporary test library overrides were removed.
+
+The controller was off after the final reboot. Steam capture is prepared for its
+next connection. LM/RM events, assigned-action delivery and physical reconnection
+remain unverified; the image is a candidate, not a public-channel release.

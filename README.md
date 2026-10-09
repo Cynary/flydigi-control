@@ -7,12 +7,14 @@ from Big Picture.
 **Work in progress.** All extra buttons have been captured from a Vader 5 Pro,
 and the corrected lighting colors have been checked on the controller. Steam
 receives M1–M4, C/Z, Fn and Turbo with the SDL fork. LM/RM Steam events, bindings,
-reconnects and wake testing remain before release. See [validation](docs/VALIDATION.md).
+reconnects and animation checks remain before release. The tested receiver does
+not advertise USB remote wake. See [validation](docs/VALIDATION.md).
 
 The app provides color and brightness controls, plus switches for the controller's
 own Turbo function and Fn profile shortcuts. It talks to the configuration HID
 interface. Gameplay input stays with Steam Input; this app does not create a
-second virtual controller, detach xpad, or change the controller's input mode.
+second virtual controller or detach xpad. Its Native Steam Input permission
+switch lets Steam acquire the extended interface.
 
 ## Run
 
@@ -88,8 +90,14 @@ python3 packaging/install.py /path/to/image-root
 
 The image installer copies the app, desktop entry and a device-specific uaccess
 rule. It does not start anything or replace a driver. The runtime also needs
-`python3-pyside6` and SDL3. Wake policy will be added after checking the receiver's
-USB descriptors and completing a real suspend/wake test.
+`python3-pyside6` and SDL3. The Moonmachine candidate also packages the matching
+Steam SDL fork and has been built and boot-tested; remaining hardware checks
+are listed in [validation](docs/VALIDATION.md).
+
+The tested wireless receiver does not advertise USB remote wake, and Linux exposes
+no device-level wake control. Keeping its USB port powered does not supply that
+missing capability. No controller-wake method is established, so the image does
+not install a wake quirk or change USB power policies.
 
 The new code was written with Codex. Protocol and lighting code is adapted from
 Tux InVader; see [THIRD_PARTY.md](THIRD_PARTY.md) and the GPL-3.0 [license](LICENSE).
@@ -98,13 +106,15 @@ Tux InVader; see [THIRD_PARTY.md](THIRD_PARTY.md) and the GPL-3.0 [license](LICE
 
 Under **Controller settings**, read the current settings, then enable
 **Native Steam Input**. This is Flydigi's permission for Steam to take over
-mapping; it leaves the reporting flags alone. Restart Steam afterward so it detects the native interface. A receiver
-reconnect alone did not refresh the input path in our test. While Steam owns the controller, its mappings take
+mapping; it leaves the reporting flags alone. With the patched Linux SDL, Steam
+switches between native and Xbox-compatible input without restarting. Earlier
+Steam drivers may need a restart. While Steam owns the controller, its mappings take
 precedence over the controller's onboard profiles.
 
 The command-line equivalent is `python3 -m flydigi_control --native-input on`.
 Use `--mapping-status` to read the permission and current owner.
 Native detection has been checked on firmware 7.1.5.0; complete Steam button
-mapping and duplicate-interface handling are still being validated.
+mapping and physical reconnects are still being validated. The fork fixes the
+duplicate Xbox entry and stale held buttons during native-mode transitions.
 
 For the supported lighting modes, official presets and current implementation gaps, see [Lighting](docs/LIGHTING.md). Use **Test buttons** when checking extra buttons: navigation is disabled during recording.
