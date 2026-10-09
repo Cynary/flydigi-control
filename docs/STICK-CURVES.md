@@ -43,8 +43,12 @@ physical stick response. No proprietary source is included here.
 There is an unresolved SDK inconsistency for negative center/edge values:
 the writer casts the signed value to a byte, while the reader decodes bytes
 above 127 as `127 - value`. For example, writing −10 produces 246, which that
-reader interprets as −119. The repository passes these values through without
-an intervening conversion. We need a configuration/readback and physical-response
+reader interprets as −119. An offline harness now confirms this with the actual SDK writer and reader,
+not just decompiled code. All 36 generated cases are saved in the test fixtures.
+For center −10, the writer also transforms the first X control point using the
+wrapped value 246, producing 218 instead of a coordinate in 0–127. Positive
+cases match our field writer. The repository passes values through without
+an intervening conversion; see `experimental/curve-reference` for reproduction. We need a configuration/readback and physical-response
 comparison to decide which encoding this firmware actually expects. Guessing
 could create a large deadzone or compensation, so negative saves are disabled.
 

@@ -3,7 +3,7 @@ import math
 from PySide6.QtCore import Qt, QPointF, QRectF, QThread, Signal
 from PySide6.QtGui import QPainter, QPen, QColor
 from PySide6.QtWidgets import QWidget, QHBoxLayout, QVBoxLayout, QLabel
-from .diagnostics import monitor_analog
+from .diagnostics import monitor_analog, Circularity
 
 
 class AnalogTest(QThread):
@@ -54,21 +54,59 @@ class AnalogPanel(QWidget):
         layout = QVBoxLayout(self)
         row = QHBoxLayout()
         self.plots, self.labels = [], []
-        for side in ('Left stick', 'Right stick'):
-            column = QVBoxLayout()
+        for side in ('Native left stick', 'Native right stick'):
+            holder=QWidget()
+            column = QVBoxLayout(holder)
+            column.setContentsMargins(0,0,0,0)
             column.addWidget(QLabel(side))
             plot = StickPlot()
             column.addWidget(plot)
             label = QLabel('Move the stick around its full outer edge.')
-            label.setWordWrap(True)
+            label.setWordWrap(True);label.setMinimumHeight(90)
             column.addWidget(label)
-            row.addLayout(column)
+            row.addWidget(holder,1)
             self.plots.append(plot)
             self.labels.append(label)
+        self.mapped_columns=[];self.mapped_plots=[];self.mapped_labels=[]
+        for side in ('OS left stick','OS right stick'):
+            column=QWidget();column_layout=QVBoxLayout(column)
+            column_layout.setContentsMargins(0,0,0,0)
+            column_layout.addWidget(QLabel(side))
+            plot=StickPlot();column_layout.addWidget(plot)
+            label=QLabel('Waiting for mapped input.');label.setWordWrap(True);label.setMinimumHeight(90);column_layout.addWidget(label)
+            row.addWidget(column,1);column.hide()
+            self.mapped_columns.append(column);self.mapped_plots.append(plot);self.mapped_labels.append(label)
+        self.mapped_circles=[Circularity(),Circularity()]
         layout.addLayout(row)
+        self.mapped_values=QLabel();self.mapped_values.setWordWrap(True)
+        layout.addWidget(self.mapped_values);self.mapped_values.hide()
         self.values = QLabel('Native input is read without changing controller settings.')
         self.values.setWordWrap(True)
         layout.addWidget(self.values)
+
+    def reset_comparison(self, enabled):
+        self.mapped_circles=[Circularity(),Circularity()]
+        for plot in (*self.plots,*self.mapped_plots):plot.setMinimumHeight(180 if enabled else 220)
+        for widget in (*self.mapped_columns,self.mapped_values):widget.setVisible(enabled)
+        for plot,label in zip(self.mapped_plots,self.mapped_labels):
+            plot.point=(0,0);plot.radii={};plot.update()
+            label.setText('Waiting for mapped input.')
+        self.mapped_values.setText('OS gamepad sample; this can include Steam Input mapping.')
+
+    def show_mapped(self, sample):
+        if sample is None:
+            self.mapped_values.setText('Selected OS gamepad is disconnected. Choose it again before the next test.')
+            for plot in self.mapped_plots:plot.point=(0,0);plot.update()
+            return
+        for plot,label,circle,point in zip(self.mapped_plots,self.mapped_labels,self.mapped_circles,sample['sticks']):
+            circle.add(*point);measured=circle.snapshot()
+            plot.point=point;plot.radii=measured['radii'];plot.update()
+            error=measured['error_percent']
+            metric='—' if error is None else f'{error:.1f}%'
+            label.setText(f'X {point[0]:+.3f}   Y {point[1]:+.3f}\n'
+                          f'Sampled RMS {metric} · {measured["coverage"]}/32 sectors')
+        self.mapped_values.setText(f'OS gamepad LT {sample["triggers"][0]*100:.1f}%   RT {sample["triggers"][1]*100:.1f}% · Buttons: '+(', '.join(sample['buttons']) or 'none')+
+                                   '\nOS values are sampled by the UI; they do not measure USB polling rate or latency.')
 
     def show_report(self, sample):
         for i, (plot, label) in enumerate(zip(self.plots, self.labels)):

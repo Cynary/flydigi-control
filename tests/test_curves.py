@@ -54,3 +54,24 @@ class CurveTests(unittest.TestCase):
             self.assertEqual(preset(kind),Curve(kind,0,0,(64,y),(127,127)))
         for kind in (3,True,-1):
             with self.assertRaises(ValueError):preset(kind)
+
+    def test_positive_fields_match_actual_vendor_serializer(self):
+        cases=json.loads(Path(__file__).with_name('curve_serialization_vectors.json').read_text())
+        for case in cases:
+            center,edge=case['center'],case['edge']
+            if center<0 or edge<0 or center+edge>100:continue
+            result=with_curve(mapping(),0,Curve(center=center,edge=edge))
+            self.assertEqual(result[109:115],bytes.fromhex(case['base_hex'])[:6])
+            self.assertEqual(result[801],bytes.fromhex(case['extra_hex'])[11])
+            self.assertEqual(case['read_center'],center)
+            self.assertEqual(case['read_edge'],edge)
+
+    def test_vendor_negative_roundtrip_is_ambiguous_and_remains_unsavable(self):
+        cases=json.loads(Path(__file__).with_name('curve_serialization_vectors.json').read_text())
+        example=next(case for case in cases if case['center']==-10 and case['edge']==-10)
+        self.assertEqual(bytes.fromhex(example['base_hex'])[1:3],bytes([246,218]))
+        self.assertEqual((example['read_center'],example['read_edge']),(-119,-119))
+        for case in cases:
+            if case['center']<0 or case['edge']<0:
+                with self.assertRaises(ValueError):
+                    with_curve(mapping(),0,Curve(center=case['center'],edge=case['edge']))

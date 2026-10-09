@@ -20,6 +20,12 @@ class GamepadNavigation:
             'SDL_GetJoystickButton': ([C.c_void_p, C.c_int], C.c_bool),
             'SDL_GetJoystickHat': ([C.c_void_p, C.c_int], C.c_uint8),
             'SDL_GetJoystickAxis': ([C.c_void_p, C.c_int], C.c_int16),
+            'SDL_IsGamepad': ([C.c_uint32], C.c_bool),
+            'SDL_GetGamepadNameForID': ([C.c_uint32], C.c_char_p),
+            'SDL_OpenGamepad': ([C.c_uint32], C.c_void_p),
+            'SDL_CloseGamepad': ([C.c_void_p], None),
+            'SDL_GetGamepadAxis': ([C.c_void_p, C.c_int], C.c_int16),
+            'SDL_GetGamepadButton': ([C.c_void_p, C.c_int], C.c_bool),
             'SDL_QuitSubSystem': ([C.c_uint32], None),
         }
         for name, (args, result) in definitions.items():
@@ -32,6 +38,8 @@ class GamepadNavigation:
         if not self.lib.SDL_Init(0x200):
             raise RuntimeError('SDL joystick initialization failed')
         self.devices = {}
+        self.output_id = None
+        self.output_handle = None
         self.previous = set()
         self.next_repeat = 0
         self.next_discovery = 0
@@ -47,6 +55,8 @@ class GamepadNavigation:
             ids = self.lib.SDL_GetJoysticks(C.byref(count))
             current = {ids[i] for i in range(count.value)} if ids else set()
             self.lib.SDL_free(ids)
+            if self.output_id is not None and self.output_id not in current:
+                self.select_output(None)
             for identifier in set(self.devices) - current:
                 self.lib.SDL_CloseJoystick(self.devices.pop(identifier))
             for identifier in current - self.devices.keys():
@@ -77,7 +87,43 @@ class GamepadNavigation:
         self.previous = pressed
         return sorted(edges)
 
+    def mapped_devices(self):
+        """Only OS devices with a known standard SDL gamepad mapping."""
+        result=[]
+        for identifier in sorted(self.devices):
+            if self.lib.SDL_IsGamepad(identifier):
+                name=self.lib.SDL_GetGamepadNameForID(identifier)
+                result.append((identifier,name.decode('utf-8','replace') if name else 'Unnamed gamepad'))
+        return result
+
+    def select_output(self, identifier):
+        if identifier==self.output_id:return
+        if self.output_handle:
+            self.lib.SDL_CloseGamepad(self.output_handle)
+        self.output_id,self.output_handle=None,None
+        if identifier is not None:
+            if identifier not in self.devices or not self.lib.SDL_IsGamepad(identifier):
+                raise ValueError('Select a connected standard gamepad')
+            handle=self.lib.SDL_OpenGamepad(identifier)
+            if not handle:raise RuntimeError('Could not open the selected OS gamepad')
+            self.output_id,self.output_handle=identifier,handle
+
+    def output_snapshot(self):
+        if not self.output_handle:return None
+        from .diagnostics import normalize_axis
+        handle=self.output_handle
+        axes=[self.lib.SDL_GetGamepadAxis(handle,i) for i in range(6)]
+        names=('A','B','X','Y','View','Home','Menu','L3','R3','LB','RB',
+               'Up','Down','Left','Right','Misc 1','Right paddle 1','Left paddle 1',
+               'Right paddle 2','Left paddle 2','Touchpad','Misc 2','Misc 3','Misc 4','Misc 5','Misc 6')
+        return {'id':self.output_id,
+                'sticks':[(normalize_axis(axes[0]),-normalize_axis(axes[1])),
+                          (normalize_axis(axes[2]),-normalize_axis(axes[3]))],
+                'triggers':[max(0,value)/32767 for value in axes[4:]],
+                'buttons':[name for i,name in enumerate(names) if self.lib.SDL_GetGamepadButton(handle,i)]}
+
     def close(self):
+        self.select_output(None)
         for handle in self.devices.values():
             self.lib.SDL_CloseJoystick(handle)
         self.devices.clear()

@@ -22,7 +22,7 @@ class UITests(unittest.TestCase):
         self.discovery = patch('flydigi_control.ui.discover', return_value=[])
         self.discovery.start()
         self.nav = patch('flydigi_control.ui.GamepadNavigation')
-        self.nav.start()
+        self.nav.start().return_value.mapped_devices.return_value=[]
         self.window = Window()
         # Each test drives discovery/navigation explicitly. Background timer
         # ticks during processEvents make mock counts and UI state race.
@@ -484,6 +484,41 @@ class UITests(unittest.TestCase):
         self.assertEqual(panel.recording_capacity(),0)
         panel.source.setCurrentIndex(0)
         self.assertEqual(panel.recording_capacity(),256-18)
+
+
+    def test_mapped_comparison_requires_selection_and_does_not_change_it_on_hotplug(self):
+        nav=self.window.navigation
+        nav.mapped_devices.return_value=[(7,'Steam Virtual Gamepad'),(8,'Another controller')]
+        self.window.refresh_output_devices()
+        self.assertIsNone(self.window.output_device.currentData())
+        nav.select_output.assert_not_called()
+        self.window.output_device.setCurrentIndex(1)
+        nav.select_output.assert_called_once_with(7)
+        nav.mapped_devices.return_value=[(8,'Another controller')]
+        self.window.refresh_output_devices()
+        self.assertEqual(self.window.output_device.currentData(),7)
+        self.assertIn('Disconnected',self.window.output_device.currentText())
+        self.assertIn('disconnected',self.window.analog_panel.mapped_values.text())
+        nav.select_output.assert_called_once_with(7)
+
+    def test_mapped_four_plot_page_fits_1080p(self):
+        self.window.pages.setCurrentIndex(4)
+        panel=self.window.analog_panel
+        panel.reset_comparison(True)
+        panel.show_mapped(dict(id=7,sticks=[(1,1),(-1,0)],triggers=[.5,1],buttons=['A']))
+        panel.show_report(dict(sticks=[(1,1),(-1,0)],triggers=[.5,1],gyro=(0,0,0),accel=(0,0,1),
+                               buttons=['A','LB'],reports_per_second=500,remaining=30,
+                               circles=[dict(radii={},coverage=0,error_percent=None)]*2))
+        for _ in range(3):self.app.processEvents()
+        self.assertEqual(panel.mapped_plots[0].point,(1,1))
+        self.assertIn('41.4%',panel.mapped_labels[0].text())
+        self.assertIn('do not measure USB',panel.mapped_values.text())
+        self.assertLessEqual(self.window.minimumSizeHint().height(),1080)
+        self.assertLessEqual(self.window.minimumSizeHint().width(),1280)
+        for plot in panel.mapped_plots:
+            self.assertTrue(plot.isVisible())
+        panel.reset_comparison(False)
+        self.assertFalse(panel.mapped_plots[0].isVisible())
 
 
 

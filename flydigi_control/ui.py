@@ -348,6 +348,10 @@ class Window(QWidget):
         self.analog_start = QPushButton('Start 60-second input test')
         self.analog_start.clicked.connect(self.start_analog_test)
         analog_layout.addWidget(self.analog_start)
+        self.output_device=QComboBox();self.output_device.addItem('Native reports only',None)
+        self.output_device.currentIndexChanged.connect(self.select_output_device)
+        self.output_choices=[]
+        analog_layout.addWidget(self.output_device)
         self.analog_panel = AnalogPanel()
         analog_layout.addWidget(self.analog_panel)
         self.analog_result = self.label(analog_layout, 'Rotate both sticks around the rim, squeeze the triggers and tilt the controller.\n'
@@ -409,7 +413,7 @@ class Window(QWidget):
                          *self.color_buttons, *self.rgb_sliders, self.brightness, self.period, self.apply, self.off,
                          self.read_settings, self.native, self.turbo, self.hotkeys, self.test_start,
                          self.sticks_tab, self.stick_read, self.stick_side, self.stick_shape, self.stick_apply,
-                         self.analog_tab, self.analog_start, self.motor_tab, *self.motor_panel.controls,
+                         self.analog_tab, self.analog_start, self.output_device, self.motor_tab, *self.motor_panel.controls,
                          self.stick_response, *self.curve_panel.controls,
                          self.trigger_settings,self.grip_settings,*self.trigger_panel.controls,*self.grip_panel.controls,
                          self.hardware_settings,*self.hardware_panel.controls,self.button_settings,*self.button_panel.controls,self.motion_settings,*self.motion_panel.controls,self.macro_settings,*self.macro_panel.controls,*self.name_panel.controls]
@@ -528,6 +532,7 @@ class Window(QWidget):
         self.macro_panel.set_available(bool(self.devices) and not busy)
         self.test_start.setEnabled(bool(self.devices) and not busy)
         self.analog_start.setEnabled(bool(self.devices) and not busy)
+        self.output_device.setEnabled(not busy and self.navigation is not None)
         self.apply.setEnabled(bool(self.devices) and not busy)
         self.off.setEnabled(bool(self.devices) and not busy)
         self.device_box.setEnabled(bool(self.devices) and not busy)
@@ -764,10 +769,34 @@ class Window(QWidget):
         self.show_device()
         self.worker.start()
 
+    def select_output_device(self, unused=None):
+        if self.navigation is None:return
+        identifier=self.output_device.currentData()
+        try:
+            self.navigation.select_output(identifier)
+            self.analog_panel.reset_comparison(identifier is not None)
+        except (ValueError,RuntimeError) as error:
+            self.analog_result.setText(str(error))
+
+    def refresh_output_devices(self):
+        choices=self.navigation.mapped_devices()
+        if choices==self.output_choices:return
+        previous=self.output_device.currentData()
+        self.output_choices=choices
+        self.output_device.blockSignals(True);self.output_device.clear()
+        self.output_device.addItem('Native reports only',None)
+        for identifier,name in choices:self.output_device.addItem(f'Compare OS output: {name} · ID {identifier}',identifier)
+        if previous is not None and self.output_device.findData(previous)<0:
+            self.output_device.addItem(f'Disconnected OS gamepad · ID {previous}',previous)
+            self.analog_panel.show_mapped(None)
+        self.output_device.setCurrentIndex(max(0,self.output_device.findData(previous)))
+        self.output_device.blockSignals(False)
+
     def start_analog_test(self):
         if self.worker is not None or not self.devices:
             return
         self.testing = True
+        self.analog_panel.reset_comparison(self.output_device.currentData() is not None)
         self.worker = AnalogTest(self.device_box.currentData(), self)
         self.worker.report.connect(self.analog_panel.show_report)
         self.worker.result.connect(lambda ok, text: self.analog_result.setText(text))
@@ -814,6 +843,9 @@ class Window(QWidget):
         # Keep processing hotplug while the Steam overlay owns focus. Only
         # dispatch navigation actions when our own window is active.
         actions = self.navigation.poll()
+        self.refresh_output_devices()
+        if isinstance(self.worker,AnalogTest) and self.output_device.currentData() is not None:
+            self.analog_panel.show_mapped(self.navigation.output_snapshot())
         state = (self.isActiveWindow(), tuple(self.navigation.devices), self.testing)
         if state != self._navigation_state:
             logging.info("Navigation active/devices/testing: %s", state)

@@ -27,6 +27,14 @@ are superseded by this table and the later results.
 
 ## Current evidence
 
+The input-test candidate can compare native reports with a selected OS gamepad.
+It uses standard SDL axes/buttons with HIDAPI disabled, requires explicit device
+selection and never switches to another controller after disconnection. The four
+plots fit at 1080p. A runtime API check initialized successfully, but no OS
+gamepads were connected, so physical input comparison is still pending.
+The vendor curve writer/reader was also executed offline on 36 synthetic cases;
+it confirms the negative-compensation mismatch described in STICK-CURVES.md.
+
 Format-3.2 saves now require backing up and verifying the separate macro bank.
 The macro codec matches four byte vectors from the vendor serializer. No macro
 read has been captured from this controller yet. The candidate now includes a
@@ -52,7 +60,7 @@ calibration, rebound suppression, precision, center sensitivity and sleep contro
 Its packet and UI checks pass, but these new commands have not been sent to hardware.
 [Protocol details and remaining checks](HARDWARE-SETTINGS.md).
 
-2026-10-09: The `onboard-settings` candidate passes 163 protocol, persistence,
+2026-10-09: The `onboard-settings` candidate passes 170 protocol, persistence,
 diagnostic and Qt tests on the K17. Offscreen previews of the stick settings and
 analog/motor/response/trigger/grip/global-settings/button/motion-mapping/macro pages were inspected, using simulated input or
 the saved read-only profile. Curve samples

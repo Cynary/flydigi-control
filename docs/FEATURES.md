@@ -12,7 +12,7 @@ parser test does not establish that the corresponding control works on hardware.
 | Grip motors | Separate SDL left/right values; Identify physically confirmed; app candidate has per-motor tests and saved enable/strength controls | Physical validation of tests and saved settings |
 | Trigger motors | SDL candidate preserves all four levels; app candidate tests each motor and all four together | Physical tests, then streaming-path verification |
 | Stick output | Candidate edits circle/rectangle and Default/Quick/Slow/Custom response, with center/edge controls and stored/proposed curve comparison | Hardware save test; negative compensation encoding; keyboard/mouse mapping editors |
-| Stick diagnostics | Candidate shows live XY, triggers, gyro, acceleration, native report rate and 32-sector circularity error | Hardware/UI check; original versus mapped output comparison and USB polling-rate test |
+| Stick diagnostics | Candidate shows native XY, triggers, gyro, acceleration, native report rate and 32-sector circularity error, alongside an explicitly selected OS gamepad | Physical original/mapped comparison and USB polling-rate test |
 | Triggers | Candidate edits travel range and per-side vibration amplitude, threshold and strength; one shared enable flag | Hardware response/save tests; native Steam Input interaction |
 | Motion | Raw gyro/acceleration diagnostics; candidate gyro-to-stick editor with activation, sensitivity and deadzone compensation | Hardware effect and persistence, two-button behavior, mouse path and streaming verification; hidden vendor smoothing fields are preserved |
 | Profiles | Active profile can be read; Fn shortcut control exists | Profile management, backups/import/export and safe save/restore |
@@ -57,6 +57,9 @@ The response editor supports saving nonnegative center/edge values; negative
 compensation is preview-only because the vendor's parser and writer disagree
 on its encoding. See [response curves](STICK-CURVES.md) for the format, validation
 and remaining hardware checks.
+
+The [native/OS comparison](INPUT-COMPARISON.md) adds mapped gamepad output without
+assuming that the first connected controller is the Vader.
 
 The input test reads the native HID reports without acquiring the controller
 or changing its mode. It processes every report and refreshes the display at
