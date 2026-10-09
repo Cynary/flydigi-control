@@ -22,6 +22,7 @@ from .profile_ui import ProfilePanel, ProfileOperation
 from .macro_ui import MacroPanel, MacroOperation, MacroRecording
 from .name_ui import NamePanel
 from .macro_library_ui import MacroLibraryPanel
+from .profiles_ui import ProfileSelectionPanel, ProfileSelectionOperation
 from .hardware_ui import HardwarePanel, HardwareOperation
 from .button_ui import ButtonMappingPanel
 from .motion_ui import MotionPanel
@@ -283,6 +284,8 @@ class Window(QWidget):
         settings.addWidget(self.hotkeys)
         self.label(settings, 'Fn + A / B / X / Y selects controller profiles 1 / 2 / 3 / 4.\n'
                             'These shortcuts and Turbo are handled by the controller.', 'muted')
+        self.profiles_button = QPushButton('Onboard profiles and backups')
+        self.profiles_button.clicked.connect(lambda:self.pages.setCurrentIndex(15))
         profile_buttons = QHBoxLayout()
         self.trigger_settings = QPushButton('Trigger settings')
         self.grip_settings = QPushButton('Saved grip vibration')
@@ -411,9 +414,18 @@ class Window(QWidget):
         self.macro_library.draft_loaded.connect(lambda:self.pages.setCurrentIndex(12))
         self.macro_panel.library.clicked.connect(self.open_macro_library)
         self.pages.addWidget(self.macro_library)
+        self.profile_selection = ProfileSelectionPanel()
+        self.profile_selection.back.clicked.connect(lambda:self.pages.setCurrentIndex(1))
+        self.profile_selection.read.clicked.connect(lambda:self.profile_selection_operation())
+        self.profile_selection.backup.clicked.connect(lambda:self.profile_selection_operation(backup_only=True))
+        self.profile_selection.requested.connect(lambda:self.profile_selection_operation(switch=True))
+        self.pages.addWidget(self.profile_selection)
         self.macro_settings = QPushButton('Onboard macros')
         self.macro_settings.clicked.connect(lambda: self.pages.setCurrentIndex(12))
-        self.pages.widget(1).layout().addWidget(self.macro_settings)
+        library_buttons = QHBoxLayout()
+        library_buttons.addWidget(self.macro_settings)
+        library_buttons.addWidget(self.profiles_button)
+        self.pages.widget(1).layout().addLayout(library_buttons)
         self.controls = [self.device_box, self.lighting_tab, self.settings_tab, self.test_tab,
                          self.effect, self.color_slot, self.add_color, self.remove_color,
                          *self.color_buttons, *self.rgb_sliders, self.brightness, self.period, self.apply, self.off,
@@ -422,7 +434,7 @@ class Window(QWidget):
                          self.analog_tab, self.analog_start, self.output_device, self.motor_tab, *self.motor_panel.controls,
                          self.stick_response, *self.curve_panel.controls,
                          self.trigger_settings,self.grip_settings,*self.trigger_panel.controls,*self.grip_panel.controls,
-                         self.hardware_settings,*self.hardware_panel.controls,self.button_settings,*self.button_panel.controls,self.motion_settings,*self.motion_panel.controls,self.macro_settings,*self.macro_panel.controls,*self.name_panel.controls,self.macro_panel.library,*self.macro_library.controls]
+                         self.hardware_settings,*self.hardware_panel.controls,self.button_settings,*self.button_panel.controls,self.motion_settings,*self.motion_panel.controls,self.macro_settings,*self.macro_panel.controls,*self.name_panel.controls,self.macro_panel.library,*self.macro_library.controls,self.profiles_button,*self.profile_selection.controls]
         for control in self.controls:
             control.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
         try:
@@ -521,7 +533,7 @@ class Window(QWidget):
             self.device_box.blockSignals(False)
             self.feature_values = {}
             self.stick_values = None
-            for panel in (self.trigger_panel,self.grip_panel,self.hardware_panel,self.button_panel,self.motion_panel,self.macro_panel):panel.clear()
+            for panel in (self.trigger_panel,self.grip_panel,self.hardware_panel,self.button_panel,self.motion_panel,self.macro_panel,self.profile_selection):panel.clear()
         self.show_device()
 
     def show_device(self):
@@ -538,6 +550,7 @@ class Window(QWidget):
         self.macro_panel.set_available(bool(self.devices) and not busy)
         self.macro_panel.library.setEnabled(not busy)
         self.macro_library.set_busy(busy)
+        self.profile_selection.set_available(bool(self.devices) and not busy)
         self.test_start.setEnabled(bool(self.devices) and not busy)
         self.analog_start.setEnabled(bool(self.devices) and not busy)
         self.output_device.setEnabled(not busy and self.navigation is not None)
@@ -567,7 +580,7 @@ class Window(QWidget):
     def device_changed(self):
         self.feature_values = {}
         self.stick_values = None
-        for panel in (self.trigger_panel,self.grip_panel,self.hardware_panel,self.button_panel,self.motion_panel,self.macro_panel):panel.clear()
+        for panel in (self.trigger_panel,self.grip_panel,self.hardware_panel,self.button_panel,self.motion_panel,self.macro_panel,self.profile_selection):panel.clear()
         self.show_device()
 
     def apply_color(self, checked=False, off=False):
@@ -595,7 +608,7 @@ class Window(QWidget):
             self.motor_panel.all.setFocus()
         elif self.pages.currentIndex() == 6:
             self.curve_panel.back.setFocus()
-        elif self.pages.currentIndex() in (7,8,9,10,11,12):
+        elif self.pages.currentIndex() in (7,8,9,10,11,12,15):
             self.pages.currentWidget().read.setFocus()
         else:
             self.read_settings.setFocus()
@@ -653,6 +666,26 @@ class Window(QWidget):
         panel.result.setText('Backing up and verifying profile…' if save else 'Reading active macro bank…')
         self.show_device()
         self.worker.start()
+
+    def profile_selection_operation(self, switch=False, backup_only=False):
+        panel = self.profile_selection
+        if self.worker is not None or not self.devices or (switch and panel.snapshot is None):return
+        target = panel.target.currentIndex() if switch else None
+        self.worker = ProfileSelectionOperation(self.device_box.currentData(), panel.snapshot, target, backup_only, self)
+        def values(data):
+            if switch:
+                self.device_changed()  # Invalidate drafts for the old profile.
+            panel.load(data)
+        self.worker.values.connect(values)
+        def result(ok, text):
+            if not ok:
+                if switch:self.device_changed()  # Selection may have happened despite a lost reply.
+                else:panel.clear()
+            panel.result.setText(text)
+        self.worker.result.connect(result)
+        self.worker.finished.connect(self.applied)
+        panel.result.setText('Reading and backing up before profile selection…' if switch else 'Reading active profile…')
+        self.show_device(); self.worker.start()
 
     def rename_macro(self):
         if self.worker is not None or self.macro_panel.snapshot is None:return

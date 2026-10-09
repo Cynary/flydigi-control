@@ -624,5 +624,50 @@ class UITests(unittest.TestCase):
             self.assertEqual(len(macro_library.entries(panel.folder)[0]), 1)
 
 
+    def test_profile_selection_requires_confirmation_and_invalidates_on_reconnect(self):
+        from test_profiles import Controller
+        from flydigi_control.persistence_check import snapshot
+        panel = self.window.profile_selection
+        self.window.pages.setCurrentIndex(15)
+        panel.set_available(True); panel.load(snapshot(Controller()))
+        requests=[]; panel.requested.connect(lambda:requests.append(panel.target.currentIndex()))
+        self.assertFalse(panel.select.isEnabled())
+        panel.target.setCurrentIndex(2)
+        panel.select.setFocus(); self.press(Qt.Key.Key_Return)
+        self.assertEqual(requests, [])
+        self.press(Qt.Key.Key_Return); self.assertEqual(requests, [2])
+        panel.target.setCurrentIndex(3)
+        panel.confirm(); panel.target.setCurrentIndex(0)
+        self.assertFalse(panel.pending)
+        self.assertIsNone(self.window.worker)
+        self.window.device_changed(); self.assertIsNone(panel.snapshot)
+        self.assertFalse(panel.select.isEnabled())
+        for _ in range(3): self.app.processEvents()
+        self.assertLessEqual(self.window.minimumSizeHint().height(),1080)
+        panel.back.setFocus(); self.press(Qt.Key.Key_Return)
+        self.assertEqual(self.window.pages.currentIndex(),1)
+        for _ in range(3): self.app.processEvents()
+        self.assertLessEqual(self.window.minimumSizeHint().height(),1080)
+
+    def test_profile_selection_worker_reports_uncertain_failure(self):
+        import tempfile
+        from test_profiles import Controller
+        from flydigi_control.persistence_check import snapshot
+        from flydigi_control.profiles_ui import ProfileSelectionOperation
+        device=Controller(); previous=snapshot(device)
+        with tempfile.TemporaryDirectory() as directory, \
+             patch.dict(os.environ, {'XDG_STATE_HOME':directory}), \
+             patch('flydigi_control.profiles_ui.ConfigurationDevice') as transport:
+            transport.return_value.__enter__.return_value=device
+            worker=ProfileSelectionOperation('/dev/test',previous,2)
+            results=[]; values=[]
+            worker.result.connect(lambda ok,text:results.append((ok,text)))
+            worker.values.connect(values.append); worker.run()
+            self.assertTrue(results[-1][0]); self.assertEqual(values[-1]['profile'],2)
+            worker.previous=snapshot(device); worker.target=3; device.ignore_select=True
+            worker.run()
+            self.assertFalse(results[-1][0]); self.assertEqual(len(values),1)
+
+
 if __name__ == '__main__':
     unittest.main()

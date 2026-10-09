@@ -60,7 +60,7 @@ calibration, rebound suppression, precision, center sensitivity and sleep contro
 Its packet and UI checks pass, but these new commands have not been sent to hardware.
 [Protocol details and remaining checks](HARDWARE-SETTINGS.md).
 
-2026-10-09: The `onboard-settings` candidate passes 192 protocol, persistence,
+2026-10-09: The `onboard-settings` candidate passes 200 protocol, persistence,
 diagnostic and Qt tests on the K17. Offscreen previews of the stick settings and
 analog/motor/response/trigger/grip/global-settings/button/motion-mapping/macro pages were inspected, using simulated input or
 the saved read-only profile. Curve samples
@@ -366,3 +366,12 @@ malformed fields, unsafe/incomplete actions, unchanged source files and the
 controller-operated import UI. All 192 tests pass on the K17. The populated
 import page fits 1280×1080 and was visually inspected. No hardware write is
 performed during import. Vendor export and online sharing remain separate work.
+
+### Onboard profile selection
+
+The candidate selects existing PC profiles with an explicit confirmation,
+private backup, stale-state check and post-selection readback. Eight new tests
+cover the packet and transaction, no retry on uncertain acknowledgment, UI
+confirmation and error reporting. All 200 tests pass on the K17. The new page
+was visually inspected at 1280×1080; the settings-menu layout regression caught
+by the tests was fixed. No physical profile switch was performed.

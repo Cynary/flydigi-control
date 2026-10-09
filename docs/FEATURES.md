@@ -15,7 +15,7 @@ parser test does not establish that the corresponding control works on hardware.
 | Stick diagnostics | Candidate shows native XY, triggers, gyro, acceleration, native report rate and 32-sector circularity error, alongside an explicitly selected OS gamepad | Physical original/mapped comparison and USB polling-rate test |
 | Triggers | Candidate edits travel range and per-side vibration amplitude, threshold and strength; one shared enable flag | Hardware response/save tests; native Steam Input interaction |
 | Motion | Raw gyro/acceleration diagnostics; candidate gyro-to-stick editor with activation, sensitivity and deadzone compensation | Hardware effect and persistence, two-button behavior, mouse path and streaming verification; hidden vendor smoothing fields are preserved |
-| Profiles | Active profile can be read; Fn shortcut control exists | Profile management, backups/import/export and safe save/restore |
+| Profiles | Candidate selects four PC profiles with backups and readback; Fn shortcut control exists | Physical switching/persistence tests; whole-profile import/export and restore |
 | Macros/Turbo | Turbo and rapid-fire controls; separate-bank backup/readback; candidate couch editor, passive recording, on-screen naming, PC library, Space Station macro import and guarded save/removal; codec matches vendor serializer | Physical activation/save tests; vendor export/online sharing, international naming and firmware shortcut behavior validation |
 | Global settings | Candidate edits firmware filtering, automatic calibration, rebound suppression, precision, center sensitivity and sleep, with capability checks | Hardware behavior and persistence; report-rate writes need protocol clarification |
 | Calibration/device tools | Automatic-calibration switch implemented; manual procedure not implemented | Inventory manual calibration, firmware/receiver and other Vader tools before claiming parity |
@@ -23,6 +23,9 @@ parser test does not establish that the corresponding control works on hardware.
 
 The [trigger and saved-vibration notes](TRIGGERS-AND-VIBRATION.md) describe their
 units, shared enable flags and how untouched profile bytes are preserved.
+
+The [profile controls](PROFILES.md) select existing PC profiles and back up their
+settings without saving or resetting them.
 
 The [global settings notes](HARDWARE-SETTINGS.md) document the controller-wide
 options and why report-rate changes remain read-only.
@@ -97,3 +100,9 @@ plus joystick/keyboard/mouse mappings. Its test page distinguishes original and
 mapped output and includes polling rate, circularity and separate grip tests.
 Remaining UI pages and model/firmware gates still need a complete audit. Vendor
 binaries and decompiled sources are not distributed in this repository.
+
+The SDK also contains an ADC-calibration command (`0xF0`, start/stop), but the
+frontend asset scan found only its IPC enum declaration, not a call from the
+normal controller settings pages. Its required physical sequence and model gates
+are unverified. It is not exposed or sent by this app; the automatic-calibration
+switch is a separate, documented control.

@@ -51,11 +51,12 @@ class ConfigurationDevice:
 
     hidraw broadcasts reports to each opener. Reading this fd doesn't consume
     Steam's reports. No test-mode, acquire, reset or profile-switch command is
-    sent. Onboard saving is reserved for the guarded persistence transaction.
+    sent during reads. Selecting a profile is an explicit guarded operation.
+    Onboard saving is reserved for the guarded persistence transaction.
     The advisory lock serializes our own configuration clients.
     """
     ALLOWED = {protocol.CMD_INFO, protocol.CMD_RUMBLE, 0x03, 0x10, 0x11, 0x13, 0x15, 0x16, 0x17, protocol.CMD_PROFILE_VERSIONS,
-               protocol.CMD_MAPPING_READ, protocol.CMD_MACRO_READ, protocol.CMD_PROFILE_SAVE,
+               protocol.CMD_MAPPING_READ, protocol.CMD_MACRO_READ, protocol.CMD_PROFILE_SAVE, protocol.CMD_PROFILE_SELECT,
                protocol.CMD_MAPPING_WRITE_START, protocol.CMD_MAPPING_WRITE_PACK,
                protocol.CMD_MACRO_WRITE_START, protocol.CMD_MACRO_WRITE_PACK,
                protocol.CMD_LED_READ, protocol.CMD_LED_WRITE_START,
@@ -104,6 +105,8 @@ class ConfigurationDevice:
             raise ValueError('Only third-party mapping permission may be changed')
         if packet[2] == protocol.CMD_PROFILE_SAVE and packet != protocol.profile_save_request(int.from_bytes(packet[4:6], 'little')):
             raise ValueError('Invalid profile-save packet')
+        if packet[2] == protocol.CMD_PROFILE_SELECT and packet != protocol.profile_select_request(packet[4]):
+            raise ValueError('Invalid profile-selection packet')
         if packet[2] == protocol.CMD_RUMBLE and packet != protocol.rumble_motors(*packet[4:8]):
             raise ValueError('Invalid four-motor rumble packet')
         if packet[2] == protocol.CMD_MACRO_READ and packet != protocol.macro_read_request(packet[4]):

@@ -62,6 +62,7 @@ def command(cmd: int, *args: int) -> bytes:
 
 
 CMD_PROFILE_VERSIONS = 0xA1  # which on-board profile is active
+CMD_PROFILE_SELECT = 0xA2
 CMD_MAPPING_READ = 0xA3
 CMD_MAPPING_WRITE_START = 0xA4
 CMD_MAPPING_WRITE_PACK = 0xA5
@@ -85,6 +86,12 @@ def request(cmd: int, *payload: int) -> bytes:
 
 def profile_versions_request() -> bytes:
     return request(CMD_PROFILE_VERSIONS)
+
+
+def profile_select_request(profile: int) -> bytes:
+    if type(profile) is not int or not 0 <= profile <= 3:
+        raise ValueError('Choose PC profile 1–4')
+    return request(CMD_PROFILE_SELECT, profile)
 
 
 def profile_state(reply: bytes) -> tuple[int, tuple[int, ...]]:
