@@ -56,6 +56,7 @@ class ConfigurationDevice:
     """
     ALLOWED = {protocol.CMD_INFO, 0x03, 0x10, 0x11, 0x13, protocol.CMD_PROFILE_VERSIONS,
                protocol.CMD_MAPPING_READ, protocol.CMD_PROFILE_SAVE,
+               protocol.CMD_MAPPING_WRITE_START, protocol.CMD_MAPPING_WRITE_PACK,
                protocol.CMD_LED_READ, protocol.CMD_LED_WRITE_START,
                protocol.CMD_LED_WRITE_PACK, protocol.CMD_LED_TEST_COLOR}
 
@@ -102,6 +103,10 @@ class ConfigurationDevice:
             raise ValueError('Invalid profile-save packet')
         if packet[2] == protocol.CMD_MAPPING_READ and packet != protocol.mapping_read_request(packet[4]):
             raise ValueError('Invalid mapping-read packet')
+        if packet[2] == protocol.CMD_MAPPING_WRITE_START and packet != protocol.mapping_write_start(*packet[4:7]):
+            raise ValueError('Invalid mapping-write range')
+        if packet[2] == protocol.CMD_MAPPING_WRITE_PACK and packet != protocol.mapping_write_pack(packet[4], packet[5:25]):
+            raise ValueError('Invalid mapping-write chunk')
         # Linux hidraw requires a zero report-ID byte for unnumbered reports.
         output = b'\x00' + packet
         if os.write(self.fd, output) != len(output):
@@ -192,6 +197,24 @@ class ConfigurationDevice:
                 if len(chunks) == count:
                     return b''.join(chunks[i] for i in range(count))
         raise TimeoutError('Incomplete mapping backup; nothing was saved')
+
+    def write_mapping(self, profile, original, updated):
+        from .persistence import _mapping_version
+        if (_mapping_version(original) != _mapping_version(updated)
+                or len(original) != len(updated) or len(updated) % 20):
+            raise ValueError('Mapping geometry/version changed')
+        if self.read_mapping(profile) != original:
+            raise RuntimeError('Mapping changed since backup; nothing was written')
+        # The vendor protocol supports partial ranges. Send each changed chunk
+        # in its own range: the data index is relative to the range, not absolute.
+        for index in range(len(updated) // 20):
+            chunk = updated[index * 20:(index + 1) * 20]
+            if chunk == original[index * 20:(index + 1) * 20]:
+                continue
+            if self.profile_state()[0] != profile:
+                raise RuntimeError('Active profile changed; stopped writing')
+            self.exchange(protocol.mapping_write_start(profile, index, 1))
+            self.exchange(protocol.mapping_write_pack(0, chunk))
 
     def read_lighting(self):
         """Read only the active profile: A7 can select the profile it reads."""

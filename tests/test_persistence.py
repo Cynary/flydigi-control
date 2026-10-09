@@ -6,6 +6,7 @@ from unittest.mock import patch
 
 from flydigi_control import protocol
 from flydigi_control.persistence import apply_lighting
+from flydigi_control.persistence import apply_stick_shape
 from flydigi_control.transport import ConfigurationDevice
 
 
@@ -37,6 +38,11 @@ class Controller:
     def write_lighting(self, profile, blob):
         self.writes.append(('lighting', blob))
         self.lighting = blob
+
+    def write_mapping(self, profile, original, updated):
+        assert bytes(self.mapping) == original
+        self.mapping[:] = updated
+        self.writes.append(('mapping', updated))
 
     def exchange(self, packet, timeout):
         self.writes.append(('save', packet))
@@ -160,3 +166,21 @@ class PersistenceTests(unittest.TestCase):
              patch.object(d, 'send'), patch.object(d, '_read', side_effect=[[], [reply]]), \
              patch('select.select'):
             with self.assertRaises(ValueError):d.read_mapping(1)
+
+    def test_stick_save_preserves_lighting_and_unrelated_mapping_bytes(self):
+        original = bytes(self.device.mapping)
+        lights = self.device.lighting
+        apply_stick_shape(self.device, original, 1, 1, self.tmp.name)
+        expected = bytearray(original)
+        expected[812] = 1
+        expected[225:227] = self.device.mapping[225:227]
+        self.assertEqual(self.device.mapping, expected)
+        self.assertEqual(self.device.lighting, lights)
+        self.assertEqual([w[0] for w in self.device.writes], ['mapping', 'save'])
+
+    def test_stale_ui_snapshot_never_overwrites_another_app_change(self):
+        original = bytes(self.device.mapping)
+        self.device.mapping[100] = 1
+        with self.assertRaisesRegex(RuntimeError, 'read them again'):
+            apply_stick_shape(self.device, original, 1, 1, self.tmp.name)
+        self.assertEqual(self.device.writes, [])

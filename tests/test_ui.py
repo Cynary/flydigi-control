@@ -104,6 +104,17 @@ class UITests(unittest.TestCase):
         self.window.feature_values = {'turbo': {'supported': True, 'enabled': True}}
         self.window.device_changed()
         self.assertEqual(self.window.feature_values, {})
+        self.assertIsNone(self.window.stick_values)
+        self.assertFalse(self.window.stick_apply.isEnabled())
+
+    def test_stick_page_displays_each_stick_without_copying_settings(self):
+        self.window.pages.setCurrentIndex(3)
+        self.window.set_stick_values({'profile': 2, 'mapping': b'example',
+            'sticks': [{'shape': 0, 'center': 2, 'edge': 4}, {'shape': 1, 'center': 5, 'edge': 6}]})
+        self.assertEqual(self.window.stick_shape.currentIndex(), 0)
+        self.window.stick_side.setCurrentIndex(1)
+        self.assertEqual(self.window.stick_shape.currentIndex(), 1)
+        self.assertIn('Center: 5', self.window.stick_summary.text())
 
     def test_apply_uses_guarded_save_and_reports_failure(self):
         worker = ApplyColor('/dev/hidraw99', 5, [(255, 0, 255)], 30, 15)

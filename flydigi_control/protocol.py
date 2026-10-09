@@ -63,6 +63,8 @@ def command(cmd: int, *args: int) -> bytes:
 
 CMD_PROFILE_VERSIONS = 0xA1  # which on-board profile is active
 CMD_MAPPING_READ = 0xA3
+CMD_MAPPING_WRITE_START = 0xA4
+CMD_MAPPING_WRITE_PACK = 0xA5
 CMD_PROFILE_SAVE = 0xA6
 CMD_LED_READ = 0xA7
 CMD_LED_WRITE_START = 0xA8
@@ -101,6 +103,19 @@ def profile_save_request(version: int) -> bytes:
     if type(version) is not int or not 0 <= version <= 65535:
         raise ValueError('Invalid profile version')
     return request(CMD_PROFILE_SAVE, version & 255, version >> 8)
+
+
+def mapping_write_start(profile: int, start: int, count: int) -> bytes:
+    mapping_read_request(profile)  # validate the same PC profile range
+    if any(type(x) is not int for x in (start, count)) or not 0 <= start < 255 or not 1 <= count <= 255 - start:
+        raise ValueError('Invalid mapping chunk range')
+    return request(CMD_MAPPING_WRITE_START, profile, start, count, BLOB_PACKET_SIZE)
+
+
+def mapping_write_pack(index: int, chunk: bytes) -> bytes:
+    if type(index) is not int or not 0 <= index < 255 or len(chunk) != BLOB_PACKET_SIZE:
+        raise ValueError('Invalid mapping chunk')
+    return request(CMD_MAPPING_WRITE_PACK, index, *chunk)
 
 
 def active_profile(reply: bytes) -> int:

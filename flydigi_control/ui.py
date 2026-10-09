@@ -13,7 +13,35 @@ from PySide6.QtWidgets import (QApplication, QWidget, QLabel, QPushButton,
 from .transport import discover, ConfigurationDevice
 from .navigation import GamepadNavigation
 from .lighting import PALETTE, GRADIENT
-from .persistence import apply_lighting
+from .persistence import apply_lighting, apply_stick_shape
+from .sticks import read_sticks
+from .analog_ui import AnalogPanel, AnalogTest
+
+
+class StickOperation(QThread):
+    result = Signal(bool, str)
+    values = Signal(object)
+
+    def __init__(self, path, mapping=None, side=None, shape=None, parent=None):
+        super().__init__(parent)
+        self.path, self.mapping, self.side, self.shape = path, mapping, side, shape
+
+    def run(self):
+        try:
+            with ConfigurationDevice(self.path) as device:
+                if self.side is not None:
+                    folder = Path(os.environ.get('XDG_STATE_HOME', str(Path.home() / '.local/state'))) / 'flydigi-control'
+                    apply_stick_shape(device, self.mapping, self.side, self.shape, folder)
+                device.info()
+                state = device.profile_state()
+                mapping = device.read_mapping(state[0])
+                values = read_sticks(mapping)
+                if device.profile_state() != state:
+                    raise RuntimeError('Profile changed; read settings again')
+            self.values.emit({'mapping': mapping, 'profile': state[0], 'sticks': values})
+            self.result.emit(True, 'Stick settings saved and read back.' if self.side is not None else 'Stick settings read from the controller.')
+        except (OSError, ValueError, RuntimeError) as error:
+            self.result.emit(False, str(error))
 
 
 class ApplyColor(QThread):
@@ -130,15 +158,21 @@ class Window(QWidget):
         self.lighting_tab = QPushButton('Lighting')
         self.settings_tab = QPushButton('Controller settings')
         self.test_tab = QPushButton('Test buttons')
+        self.sticks_tab = QPushButton('Sticks')
+        self.analog_tab = QPushButton('Sticks / motion test')
         tabs.addWidget(self.lighting_tab)
         tabs.addWidget(self.settings_tab)
         tabs.addWidget(self.test_tab)
+        tabs.addWidget(self.sticks_tab)
+        tabs.addWidget(self.analog_tab)
         layout.addLayout(tabs)
         self.pages = QStackedWidget()
         layout.addWidget(self.pages)
         self.lighting_tab.clicked.connect(lambda: self.pages.setCurrentIndex(0))
         self.settings_tab.clicked.connect(lambda: self.pages.setCurrentIndex(1))
         self.test_tab.clicked.connect(lambda: self.pages.setCurrentIndex(2))
+        self.sticks_tab.clicked.connect(lambda: self.pages.setCurrentIndex(3))
+        self.analog_tab.clicked.connect(lambda: self.pages.setCurrentIndex(4))
         root_layout = layout
         lighting_page = QWidget()
         layout = QVBoxLayout(lighting_page)
@@ -250,11 +284,49 @@ class Window(QWidget):
         self.test_buttons.setWordWrap(True)
         self.test_seen = set()
         test_layout.addStretch()
+        sticks_page = QWidget()
+        sticks_layout = QVBoxLayout(sticks_page)
+        self.pages.addWidget(sticks_page)
+        self.label(sticks_layout, 'Stick output', 'title')
+        note = self.label(sticks_layout, 'Circle limits the output boundary to a circle. Rectangle lets it reach the corners.\n'
+                          'This is saved in the controller; Steam Input can apply additional processing.', 'muted')
+        note.setWordWrap(True)
+        self.stick_values = None
+        self.stick_read = QPushButton('Read stick settings')
+        self.stick_read.clicked.connect(lambda: self.stick_operation())
+        sticks_layout.addWidget(self.stick_read)
+        self.stick_side = QComboBox()
+        self.stick_side.addItems(['Left stick', 'Right stick'])
+        self.stick_side.currentIndexChanged.connect(self.load_stick)
+        sticks_layout.addWidget(self.stick_side)
+        self.stick_shape = QComboBox()
+        self.stick_shape.addItems(['Rectangle', 'Circle'])
+        sticks_layout.addWidget(self.stick_shape)
+        self.stick_summary = self.label(sticks_layout, 'Read settings before editing.', 'muted')
+        self.stick_apply = QPushButton('Save stick shape')
+        self.stick_apply.clicked.connect(lambda: self.stick_operation(apply=True))
+        sticks_layout.addWidget(self.stick_apply)
+        self.stick_result = self.label(sticks_layout, '', 'muted')
+        self.stick_result.setWordWrap(True)
+        sticks_layout.addStretch()
+        analog_page = QWidget()
+        analog_layout = QVBoxLayout(analog_page)
+        self.pages.addWidget(analog_page)
+        self.analog_start = QPushButton('Start 60-second input test')
+        self.analog_start.clicked.connect(self.start_analog_test)
+        analog_layout.addWidget(self.analog_start)
+        self.analog_panel = AnalogPanel()
+        analog_layout.addWidget(self.analog_panel)
+        self.analog_result = self.label(analog_layout, 'Rotate both sticks around the rim, squeeze the triggers and tilt the controller.\n'
+                                        'Navigation is disabled during the test. These are native reports, before Steam mappings.', 'muted')
+        self.analog_result.setWordWrap(True)
         self.label(root_layout, 'D-pad / stick: navigate    A: select    B: return to Steam', 'eyebrow')
         self.controls = [self.device_box, self.lighting_tab, self.settings_tab, self.test_tab,
                          self.effect, self.color_slot, self.add_color, self.remove_color,
                          *self.color_buttons, *self.rgb_sliders, self.brightness, self.period, self.apply, self.off,
-                         self.read_settings, self.native, self.turbo, self.hotkeys, self.test_start]
+                         self.read_settings, self.native, self.turbo, self.hotkeys, self.test_start,
+                         self.sticks_tab, self.stick_read, self.stick_side, self.stick_shape, self.stick_apply,
+                         self.analog_tab, self.analog_start]
         for control in self.controls:
             control.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
         try:
@@ -352,17 +424,22 @@ class Window(QWidget):
                 self.device_box.setCurrentIndex(index if index >= 0 else 0)
             self.device_box.blockSignals(False)
             self.feature_values = {}
+            self.stick_values = None
         self.show_device()
 
     def show_device(self):
         busy = self.worker is not None
-        for tab in (self.lighting_tab, self.settings_tab, self.test_tab):
+        for tab in (self.lighting_tab, self.settings_tab, self.test_tab, self.sticks_tab, self.analog_tab):
             tab.setEnabled(not self.testing)
         self.test_start.setEnabled(bool(self.devices) and not busy)
+        self.analog_start.setEnabled(bool(self.devices) and not busy)
         self.apply.setEnabled(bool(self.devices) and not busy)
         self.off.setEnabled(bool(self.devices) and not busy)
         self.device_box.setEnabled(bool(self.devices) and not busy)
         self.read_settings.setEnabled(bool(self.devices) and not busy)
+        self.stick_read.setEnabled(bool(self.devices) and not busy)
+        for widget in (self.stick_apply, self.stick_shape, self.stick_side):
+            widget.setEnabled(bool(self.devices) and not busy and self.stick_values is not None)
         for button, name in ((self.native, 'third_party_control'), (self.turbo, 'turbo'), (self.hotkeys, 'profile_hotkeys')):
             value = self.feature_values.get(name)
             button.setEnabled(bool(self.devices) and not busy and bool(value and value['supported']))
@@ -381,6 +458,7 @@ class Window(QWidget):
 
     def device_changed(self):
         self.feature_values = {}
+        self.stick_values = None
         self.show_device()
 
     def apply_color(self, checked=False, off=False):
@@ -402,6 +480,8 @@ class Window(QWidget):
         self.show_device()
         if self.pages.currentIndex() == 0:
             self.apply.setFocus()
+        elif self.pages.currentIndex() == 3:
+            self.stick_read.setFocus()
         else:
             self.read_settings.setFocus()
 
@@ -418,6 +498,33 @@ class Window(QWidget):
 
     def set_feature_values(self, values):
         self.feature_values = values
+
+    def load_stick(self, unused=None):
+        if self.stick_values is None:
+            return
+        value = self.stick_values['sticks'][self.stick_side.currentIndex()]
+        self.stick_shape.setCurrentIndex(value['shape'])
+        self.stick_summary.setText(f"Profile {self.stick_values['profile'] + 1} · "
+                                  f"Center: {value['center']} · Edge: {value['edge']}\n"
+                                  'Center and edge are read-only in this candidate.')
+
+    def set_stick_values(self, values):
+        self.stick_values = values
+        self.load_stick()
+
+    def stick_operation(self, apply=False):
+        if self.worker is not None or not self.devices or (apply and self.stick_values is None):
+            return
+        self.worker = StickOperation(self.device_box.currentData(),
+            self.stick_values['mapping'] if apply else None,
+            self.stick_side.currentIndex() if apply else None,
+            self.stick_shape.currentIndex() if apply else None, self)
+        self.worker.values.connect(self.set_stick_values)
+        self.worker.result.connect(lambda ok, text: self.stick_result.setText(text))
+        self.worker.finished.connect(self.applied)
+        self.stick_result.setText('Reading and verifying controller settings…')
+        self.show_device()
+        self.worker.start()
 
     def toggle_feature(self, name):
         value = self.feature_values.get(name)
@@ -438,6 +545,18 @@ class Window(QWidget):
         self.show_device()
         self.worker.start()
 
+    def start_analog_test(self):
+        if self.worker is not None or not self.devices:
+            return
+        self.testing = True
+        self.worker = AnalogTest(self.device_box.currentData(), self)
+        self.worker.report.connect(self.analog_panel.show_report)
+        self.worker.result.connect(lambda ok, text: self.analog_result.setText(text))
+        self.worker.finished.connect(self.button_test_finished)
+        self.analog_result.setText('Recording native reports for 60 seconds. Navigation is disabled.')
+        self.show_device()
+        self.worker.start()
+
     def button_test_report(self, value):
         if value['event'] == 'buttons':
             self.test_seen.update(value['pressed'])
@@ -452,7 +571,7 @@ class Window(QWidget):
         self.worker = None
         self.testing = False
         self.show_device()
-        self.test_start.setFocus()
+        (self.analog_start if self.pages.currentIndex() == 4 else self.test_start).setFocus()
 
     def poll_navigation(self):
         if self.navigation is None:

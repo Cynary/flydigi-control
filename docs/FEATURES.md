@@ -10,9 +10,9 @@ parser test does not establish that the corresponding control works on hardware.
 | Lighting | Colors verified, effect uploads read back | Flow/brightness/off visual checks; onboard persistence power-cycle test |
 | Persistence | Guarded candidate saves the active profile after backing it up and checking mappings | Verify off/on, receiver replug and reboot with the app closed; check feature switches individually |
 | Grip motors | Separate SDL left/right values; Identify physically confirmed | Individual strength controls and repeatable per-motor tests |
-| Trigger motors | Four motor fields identified in official protocol; current SDL trigger callback unsupported | Driver, app controls, simultaneous four-motor test and streaming-path verification |
-| Stick output | Read-only profile confirms circle/rectangle fields for each stick | Shape, center deadzone, edge adjustment, response curve and mapping UI; verified writes |
-| Stick diagnostics | Protocol and official UI identified | Live XY, circularity error, center/edge tests, original versus mapped output and polling-rate test |
+| Trigger motors | SDL candidate independently preserves all four motor levels; replay tests and build pass | Hardware check, app controls, simultaneous four-motor test and streaming-path verification |
+| Stick output | Candidate edits left/right circle/rectangle, preserving other profile bytes; deadzone/edge values displayed | Hardware save test; center deadzone, edge adjustment, response curve and mapping editors |
+| Stick diagnostics | Candidate shows live XY, triggers, gyro, acceleration, native report rate and 32-sector circularity error | Hardware/UI check; original versus mapped output comparison and USB polling-rate test |
 | Triggers | Analog values are decoded | Travel/range controls and tests; enumerate Vader-specific vibration settings |
 | Motion | Gyro and acceleration decoded | Official motion mappings/sensitivity/smoothing options; visible sensor tests and streaming verification |
 | Profiles | Active profile can be read; Fn shortcut control exists | Profile management, backups/import/export and safe save/restore |
@@ -33,6 +33,18 @@ The vendor's mapping-format 3.1/3.2 parser places left/right shape at offsets
 800/812 (`0` rectangle, `1` circle), next to the response-curve and edge fields.
 Both sticks on the tested controller read back as rectangle. No stick settings
 have been changed. Unknown mapping formats must be rejected before writes.
+
+The candidate writes only changed 20-byte mapping chunks, checks the complete
+profile, then saves it with the same guarded transaction used for lighting.
+An outdated settings page cannot overwrite a change made since its last read.
+The vendor's parser and writer disagree on the negative encoding for center and
+edge adjustment; those fields remain read-only until that is understood.
+
+The input test reads the native HID reports without acquiring the controller
+or changing its mode. It processes every report and refreshes the display at
+30 Hz. “Native reports/s” counts received reports, not USB polls. Circularity is
+the RMS radius error over the visited angular sectors; coverage is shown because
+a partial rotation is not a complete circularity test.
 
 ## Evidence and scope
 

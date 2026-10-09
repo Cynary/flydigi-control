@@ -27,6 +27,14 @@ are superseded by this table and the later results.
 
 ## Current evidence
 
+2026-10-09: The `onboard-settings` candidate passes 58 protocol, persistence,
+diagnostic and Qt tests on the K17. Offscreen previews of the stick settings and
+analog test pages were inspected, using simulated input. Tests cover stale
+profile rejection, preservation of unrelated settings, backup failure, and an
+uncertain save acknowledgment without repeating the save. The candidate has not
+been installed: onboard persistence still needs controller power-cycle tests,
+and the kernel-panic investigation remains open.
+
 2026-10-08: K17 reached over SSH after a magic packet to its verified Ethernet
 address. No USB device with Flydigi VID 37d7 was present. The user was asked to
 connect the receiver and turn the controller on. No driver or wake configuration
