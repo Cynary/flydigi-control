@@ -4,6 +4,7 @@ import sys
 import json
 import os
 import time
+import logging
 from pathlib import Path
 from PySide6.QtCore import Qt, QTimer, QThread, Signal
 from PySide6.QtGui import QKeyEvent, QIcon, QPixmap, QColor
@@ -267,7 +268,7 @@ class Window(QWidget):
             self.navigation = GamepadNavigation()
         except (OSError, RuntimeError, AttributeError) as error:
             self.navigation = None
-            print(f"Flydigi navigation initialization failed: {error}", file=sys.stderr, flush=True)
+            logging.exception("Gamepad navigation initialization failed")
         self._navigation_state = None
         self.timer = QTimer(self)
         self.timer.timeout.connect(self.poll_navigation)
@@ -468,7 +469,7 @@ class Window(QWidget):
         actions = self.navigation.poll()
         state = (self.isActiveWindow(), tuple(self.navigation.devices), self.testing)
         if state != self._navigation_state:
-            print(f"Flydigi navigation active/devices/testing: {state}", file=sys.stderr, flush=True)
+            logging.info("Navigation active/devices/testing: %s", state)
             self._navigation_state = state
         if not self.isActiveWindow() or self.testing:
             return
@@ -527,6 +528,12 @@ class Window(QWidget):
 
 
 def run(screenshot=None):
+    folder = Path(os.environ.get('XDG_STATE_HOME', str(Path.home() / '.local/state'))) / 'flydigi-control'
+    folder.mkdir(parents=True, exist_ok=True)
+    from logging.handlers import RotatingFileHandler
+    logging.basicConfig(level=logging.INFO, format='%(asctime)s %(message)s',
+                        handlers=[RotatingFileHandler(folder / 'app.log', maxBytes=256*1024, backupCount=2)])
+    logging.info("App source: %s", __file__)
     application = QApplication(sys.argv[:1])
     window = Window()
     if screenshot:

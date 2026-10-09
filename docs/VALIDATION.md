@@ -216,13 +216,25 @@ Ordinary navigation recovered through Steam's Xbox-compatible fallback, but
 configuration queries stopped receiving replies. USB captures confirm that the
 queries were transmitted. Pausing Steam's discovery queries, restarting the
 controller and resetting the USB connection did not restore settings replies.
-A full receiver power-cycle is still needed for comparison; do not call this
-reconnect case resolved.
+Unplugging the receiver for nine seconds restored settings replies and native
+input immediately. This confirms the USB reset did not clear its failed state;
+it does not yet prove which command or event caused that state.
 
 The app now processes SDL device discovery while unfocused, but dispatches
 navigation only while its own window is active. Initialization errors and device
 transitions are logged. SDL's signal handlers are disabled because Qt owns the
 app lifecycle; previously SDL swallowed SIGTERM into an event the app discarded.
 All 31 Python/Qt tests pass on the K17. The local test launcher uses
-`python3 -m flydigi_control`: setting PYTHONPATH on the image entry point alone
+`python3 -P -m flydigi_control`: setting PYTHONPATH on the image entry point alone
 was ineffective because that entry point prepended the packaged source directory.
+Using `-m` without `-P` was also insufficient: Steam's working directory contained
+an older source copy, which Python searched first. This delayed live validation
+of the hotplug fix; the earlier mock tests were not proof of the deployed app.
+
+After correcting that path, a real Linux uinput test added and removed a Steam
+virtual gamepad while the same Qt app stayed open. Its device list changed from
+one handle to two, then back to one, without restart. Settings queries were also
+working after the receiver power-cycle. Physical off/on validation remains the
+next gate. The app records its source path, initialization errors and changes to
+focus/device IDs in a bounded local log (256 KiB plus two rotated files); button
+values are not logged there.
