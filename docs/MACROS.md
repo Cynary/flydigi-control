@@ -31,10 +31,34 @@ needs investigation before generating it; the reader preserves unknown events.
 Our encoder rejects timestamp overflow and overlong names rather than silently
 wrapping or cutting a UTF-8 character.
 
-The offline replacement function preserves every other macro's full record.
-There is no hardware writer or couch macro editor yet. Commands AD/AE remain
-blocked by the configuration transport. Writing a bank, updating a button's
-binding and permanently saving need to be verified together before exposing Save.
+## Candidate editor and save path
+
+Controller settings → Onboard macros opens the controller-operated editor.
+Read the active profile, choose an activation button and a repeat mode, then
+insert button press/release or stick-direction actions with delays. Actions can
+be replaced, removed and reordered. The summary shows the action count and total
+duration. Editing a draft sends no commands; Save performs the transaction below.
+Names from existing macros are preserved; new macros receive a name based on the
+activation button. Renaming, recording live input and deleting an entire macro
+are not implemented yet. Disabled mode retains the macro in its bank slot.
+
+The replacement function preserves every other macro's full record. The
+candidate writer uses AD to select a changed range and AE for its 20-byte chunks,
+with indexes relative to that range. It never retries an uncertain write. It
+backs up the original bank, verifies the new bank and checks that mappings and
+LEDs are unchanged before sending the single A6 permanent-save command. The
+whole profile is read back afterward. Unknown bank versions are rejected.
+
+In Space Station 4.2.0.9, `ControllerRepository.ApplyMacroConfig` calls
+`ControllerSdk.WriteMacroConfigPartial` for format 3.2. Following this through
+the SDK reaches only the AD/AE commands; it does not issue a separate A4/A5
+button-map write. The activation button lives in the macro record. Our candidate
+follows that path. If firmware changes the base mapping as a side effect,
+verification stops before A6 rather than assuming that change is harmless.
+A physical test must establish activation and readback behavior before release.
+
+This candidate is not installed on the K17. No macro write or permanent-save
+command has been sent to its controller during this work.
 
 ## Independent checks
 
@@ -46,7 +70,12 @@ synthetic byte vectors and our harness are stored here, not vendor binaries.
 
 Tests also cover corrupt offsets, overlapping/duplicate records, limits,
 missing or changed macro backups, unrelated HID input, out-of-order packets,
-and changes observed after saving. These validate our implementation against
+and changes observed after saving. Transaction tests cover stale editor snapshots,
+backup failure, interrupted chunk writes, active-profile changes and preservation
+of every unrelated record. The Qt tests cover building/reordering actions,
+controller navigation, unknown events, all activation-button defaults and 1080p
+layout. An offscreen preview was inspected with synthetic macro data.
+These validate our implementation against
 the format; they do not establish device behavior or power-cycle persistence.
 
 Read-only inspection once a receiver is connected:

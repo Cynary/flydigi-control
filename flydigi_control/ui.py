@@ -19,6 +19,7 @@ from .analog_ui import AnalogPanel, AnalogTest
 from .motor_ui import MotorPanel, MotorTest
 from .curve_ui import CurvePanel
 from .profile_ui import ProfilePanel, ProfileOperation
+from .macro_ui import MacroPanel, MacroOperation
 from .hardware_ui import HardwarePanel, HardwareOperation
 from .button_ui import ButtonMappingPanel
 from .motion_ui import MotionPanel
@@ -387,6 +388,14 @@ class Window(QWidget):
         self.pages.addWidget(self.motion_panel)
         self.motion_settings.clicked.connect(lambda: self.pages.setCurrentIndex(11))
         self.label(root_layout, 'D-pad / stick: navigate    A: select    B: return to Steam', 'eyebrow')
+        self.macro_panel = MacroPanel()
+        self.macro_panel.back.clicked.connect(lambda: self.pages.setCurrentIndex(1))
+        self.macro_panel.read.clicked.connect(lambda: self.macro_operation())
+        self.macro_panel.save.clicked.connect(lambda: self.macro_operation(save=True))
+        self.pages.addWidget(self.macro_panel)
+        self.macro_settings = QPushButton('Onboard macros')
+        self.macro_settings.clicked.connect(lambda: self.pages.setCurrentIndex(12))
+        self.pages.widget(1).layout().addWidget(self.macro_settings)
         self.controls = [self.device_box, self.lighting_tab, self.settings_tab, self.test_tab,
                          self.effect, self.color_slot, self.add_color, self.remove_color,
                          *self.color_buttons, *self.rgb_sliders, self.brightness, self.period, self.apply, self.off,
@@ -395,7 +404,7 @@ class Window(QWidget):
                          self.analog_tab, self.analog_start, self.motor_tab, *self.motor_panel.controls,
                          self.stick_response, *self.curve_panel.controls,
                          self.trigger_settings,self.grip_settings,*self.trigger_panel.controls,*self.grip_panel.controls,
-                         self.hardware_settings,*self.hardware_panel.controls,self.button_settings,*self.button_panel.controls,self.motion_settings,*self.motion_panel.controls]
+                         self.hardware_settings,*self.hardware_panel.controls,self.button_settings,*self.button_panel.controls,self.motion_settings,*self.motion_panel.controls,self.macro_settings,*self.macro_panel.controls]
         for control in self.controls:
             control.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
         try:
@@ -494,7 +503,7 @@ class Window(QWidget):
             self.device_box.blockSignals(False)
             self.feature_values = {}
             self.stick_values = None
-            for panel in (self.trigger_panel,self.grip_panel,self.hardware_panel,self.button_panel,self.motion_panel):panel.clear()
+            for panel in (self.trigger_panel,self.grip_panel,self.hardware_panel,self.button_panel,self.motion_panel,self.macro_panel):panel.clear()
         self.show_device()
 
     def show_device(self):
@@ -508,6 +517,7 @@ class Window(QWidget):
         self.hardware_panel.set_available(bool(self.devices) and not busy)
         self.button_panel.set_available(bool(self.devices) and not busy)
         self.motion_panel.set_available(bool(self.devices) and not busy)
+        self.macro_panel.set_available(bool(self.devices) and not busy)
         self.test_start.setEnabled(bool(self.devices) and not busy)
         self.analog_start.setEnabled(bool(self.devices) and not busy)
         self.apply.setEnabled(bool(self.devices) and not busy)
@@ -536,7 +546,7 @@ class Window(QWidget):
     def device_changed(self):
         self.feature_values = {}
         self.stick_values = None
-        for panel in (self.trigger_panel,self.grip_panel,self.hardware_panel,self.button_panel,self.motion_panel):panel.clear()
+        for panel in (self.trigger_panel,self.grip_panel,self.hardware_panel,self.button_panel,self.motion_panel,self.macro_panel):panel.clear()
         self.show_device()
 
     def apply_color(self, checked=False, off=False):
@@ -564,7 +574,7 @@ class Window(QWidget):
             self.motor_panel.all.setFocus()
         elif self.pages.currentIndex() == 6:
             self.curve_panel.back.setFocus()
-        elif self.pages.currentIndex() in (7,8,9,10,11):
+        elif self.pages.currentIndex() in (7,8,9,10,11,12):
             self.pages.currentWidget().read.setFocus()
         else:
             self.read_settings.setFocus()
@@ -605,6 +615,22 @@ class Window(QWidget):
             self.hardware_panel.clear()
         self.hardware_panel.result.setText(text)
         self.feature_values = {}  # old Turbo/Fn state must be reread too
+
+    def macro_operation(self, save=False):
+        panel = self.macro_panel
+        if self.worker is not None or not self.devices or (save and panel.snapshot is None):
+            return
+        macro = panel.macro() if save else None
+        self.worker = MacroOperation(self.device_box.currentData(), panel.snapshot, macro, self)
+        self.worker.values.connect(panel.load)
+        def result(ok, text):
+            if not ok: panel.clear()
+            panel.result.setText(text)
+        self.worker.result.connect(result)
+        self.worker.finished.connect(self.applied)
+        panel.result.setText('Backing up and verifying profile…' if save else 'Reading active macro bank…')
+        self.show_device()
+        self.worker.start()
 
     def profile_operation(self,panel,save=False):
         if self.worker is not None or not self.devices or (save and panel.mapping is None):

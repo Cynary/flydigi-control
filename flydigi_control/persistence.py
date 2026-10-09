@@ -66,7 +66,23 @@ def apply_mapping_edit(device, previous_mapping, edit, backup_dir, *, expected_p
     return apply_configuration(device, backup_dir, mapping_update=update, expected_profile=expected_profile)
 
 
-def apply_configuration(device, backup_dir, *, lighting_update=None, mapping_update=None, expected_profile=None):
+def apply_macro(device, previous_mapping, previous_macros, macro, backup_dir, *, expected_profile):
+    from .macro_bank import replace_macro
+    def unchanged(mapping):
+        if mapping != previous_mapping:
+            raise RuntimeError('Controller settings changed; read them again before applying')
+        return mapping
+    def update(macros):
+        if macros != previous_macros:
+            raise RuntimeError('Macros changed; read them again before applying')
+        return replace_macro(macros, macro)
+    # The vendor's 3.2 ApplyMacroConfig updates AD/AE only: activation is in
+    # the macro record. Do not invent a separate A4/A5 button-map write.
+    return apply_configuration(device, backup_dir, mapping_update=unchanged,
+                               macro_update=update, expected_profile=expected_profile)
+
+
+def apply_configuration(device, backup_dir, *, lighting_update=None, mapping_update=None, macro_update=None, expected_profile=None):
     """Caller holds ConfigurationDevice's lock throughout this transaction.
 
     Save only on an explicit Apply, never from a reconnect or polling handler.
@@ -84,6 +100,13 @@ def apply_configuration(device, backup_dir, *, lighting_update=None, mapping_upd
     # Version 3.2 moved macros out of the base mapping block. A6 saves the
     # active profile; back up and verify this separate state even for LED edits.
     macros = device.read_macros(profile) if mapping[0] >= 2 else None
+    if macro_update and macros is None:
+        raise ValueError('Macro editing requires mapping format 3.2')
+    updated_macros = macro_update(macros) if macro_update else macros
+    if macro_update:
+        from .macro_bank import decode_bank
+        if decode_bank(macros).version != decode_bank(updated_macros).version:
+            raise ValueError('An edit must preserve the macro-bank version')
     led_profile, original = device.read_lighting()
     if led_profile != profile or device.profile_state() != state:
         raise RuntimeError('Profile changed during backup; nothing was written')
@@ -97,6 +120,7 @@ def apply_configuration(device, backup_dir, *, lighting_update=None, mapping_upd
         'lighting': original.hex(), 'requested_lighting': blob.hex(),
         'requested_mapping': updated_mapping.hex(),
         'macros': macros.hex() if macros is not None else None,
+        'requested_macros': updated_macros.hex() if updated_macros is not None else None,
     })
     # Even an unchanged live value may not have been saved, so Apply must commit
     # it. Ordinary UI refreshes and reconnects never call this function.
@@ -106,11 +130,13 @@ def apply_configuration(device, backup_dir, *, lighting_update=None, mapping_upd
         device.write_lighting(profile, blob)
     if updated_mapping != mapping:
         device.write_mapping(profile, mapping, updated_mapping)
+    if updated_macros != macros:
+        device.write_macros(profile, macros, updated_macros)
     if device.read_lighting() != (profile, blob):
         raise RuntimeError(f'Lighting verification failed; no save sent. Backup: {backup}')
     if device.read_mapping(profile) != updated_mapping or device.profile_state() != state:
         raise RuntimeError(f'Profile changed; no save sent. Backup: {backup}')
-    if macros is not None and device.read_macros(profile) != macros:
+    if macros is not None and device.read_macros(profile) != updated_macros:
         raise RuntimeError(f'Macros changed; no save sent. Backup: {backup}')
     # 0xffff is the vendor's factory/default sentinel. Use a fresh non-sentinel
     # identifier, matching the official app's range, without probabilistic loops.
@@ -131,6 +157,6 @@ def apply_configuration(device, backup_dir, *, lighting_update=None, mapping_upd
         raise RuntimeError(f'Profile differs after saving; no further writes sent. Backup: {backup}')
     if device.read_lighting() != (profile, blob):
         raise RuntimeError(f'Lighting differs after saving; no further writes sent. Backup: {backup}')
-    if macros is not None and device.read_macros(profile) != macros:
+    if macros is not None and device.read_macros(profile) != updated_macros:
         raise RuntimeError(f'Macros differ after saving; no further writes sent. Backup: {backup}')
     return backup

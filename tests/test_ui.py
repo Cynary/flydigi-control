@@ -347,6 +347,97 @@ class UITests(unittest.TestCase):
             worker.run()
             self.assertEqual(results[-1], (False, 'Save not confirmed'))
 
+    def test_macro_editor_builds_actions_without_writing(self):
+        from test_macro_bank import empty_bank
+        from test_profile_controls import profile
+        from flydigi_control.macro_bank import decode_bank,replace_macro,Action
+        panel=self.window.macro_panel
+        panel.set_available(True)
+        panel.load(dict(mapping=profile(),macros=empty_bank(),profile=0))
+        panel.source.setCurrentIndex(18)
+        self.assertFalse(panel.save.isEnabled())
+        panel.target.setCurrentIndex(4);panel.add.click()
+        panel.event.setCurrentIndex(panel.event.findData(0));panel.target.setCurrentIndex(4)
+        panel.delay.setValue(50);panel.add.click()
+        self.assertEqual(panel.macro().actions,(Action(0,4,1),Action(50,4,0)))
+        self.assertTrue(panel.save.isEnabled())
+        encoded=replace_macro(empty_bank(),panel.macro())
+        self.assertEqual(decode_bank(encoded).records[0].macro.key,18)
+        self.assertIsNone(self.window.worker)
+        panel.earlier.click()
+        self.assertEqual(panel.actions[0],Action(50,4,0))
+        panel.remove.click()
+        self.assertEqual(len(panel.actions),1)
+        panel.remove.click()
+        self.assertFalse(panel.save.isEnabled())
+
+    def test_macro_editor_preserves_unknown_events_and_rejects_save(self):
+        from test_macro_bank import empty_bank,sample
+        from test_profile_controls import profile
+        from flydigi_control.macro_bank import replace_macro
+        blob=bytearray(replace_macro(empty_bank(),sample()));blob[59]=5
+        panel=self.window.macro_panel
+        panel.set_available(True)
+        panel.source.setCurrentIndex(18)
+        panel.load(dict(mapping=profile(),macros=bytes(blob),profile=0))
+        self.assertEqual(panel.actions[0].event,5)
+        self.assertFalse(panel.save.isEnabled())
+        self.assertIn('Unknown event',panel.action.itemText(0))
+        panel.clear();self.assertFalse(panel.add.isEnabled())
+
+    def test_macro_editor_fits_1080p_and_controller_edits_delay(self):
+        from test_macro_bank import empty_bank,sample
+        from test_profile_controls import profile
+        from flydigi_control.macro_bank import replace_macro
+        self.window.pages.setCurrentIndex(12)
+        panel=self.window.macro_panel
+        panel.set_available(True);panel.source.setCurrentIndex(18)
+        panel.load(dict(mapping=profile(),macros=replace_macro(empty_bank(),sample()),profile=0))
+        for _ in range(3):self.app.processEvents()
+        self.assertLessEqual(self.window.minimumSizeHint().height(),1080)
+        self.assertLessEqual(panel.save.geometry().bottom(),panel.height())
+        panel.delay.setFocus();before=panel.delay.value()
+        self.press(Qt.Key.Key_Right)
+        self.assertEqual(panel.delay.value(),before+10)
+        panel.back.setFocus();self.press(Qt.Key.Key_Return)
+        self.assertEqual(self.window.pages.currentIndex(),1)
+
+    def test_macro_new_names_fit_every_activation_button(self):
+        from test_macro_bank import empty_bank
+        from test_profile_controls import profile
+        from flydigi_control.macro_bank import replace_macro
+        panel=self.window.macro_panel
+        panel.set_available(True);panel.load(dict(mapping=profile(),macros=empty_bank(),profile=0))
+        for source in range(24):
+            panel.source.setCurrentIndex(source)
+            panel.event.setCurrentIndex(panel.event.findData(1));panel.target.setCurrentIndex(4)
+            panel.add.click()
+            self.assertTrue(panel.save.isEnabled(),panel.name)
+            replace_macro(empty_bank(),panel.macro())
+
+    def test_macro_worker_reads_before_edit_and_reports_failed_save(self):
+        from flydigi_control.macro_ui import MacroOperation
+        from test_macro_edit import MacroController
+        from test_macro_bank import sample
+        device=MacroController()
+        snapshot=dict(mapping=bytes(device.mapping),macros=device.macros,profile=1)
+        worker=MacroOperation('unused',snapshot,sample())
+        results=[];values=[]
+        worker.result.connect(lambda ok,text:results.append((ok,text)))
+        worker.values.connect(values.append)
+        with patch('flydigi_control.macro_ui.ConfigurationDevice') as context, \
+             patch('flydigi_control.macro_ui.apply_macro',side_effect=TimeoutError('lost ACK')):
+            context.return_value.__enter__.return_value=device
+            worker.run()
+        self.assertEqual(results,[(False,'lost ACK')]);self.assertEqual(values,[])
+        reader=MacroOperation('unused')
+        reader.values.connect(values.append)
+        with patch('flydigi_control.macro_ui.ConfigurationDevice') as context:
+            context.return_value.__enter__.return_value=device
+            reader.run()
+        self.assertEqual(values,[snapshot])
+
+
 
 if __name__ == '__main__':
     unittest.main()

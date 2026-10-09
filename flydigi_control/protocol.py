@@ -66,6 +66,8 @@ CMD_MAPPING_READ = 0xA3
 CMD_MAPPING_WRITE_START = 0xA4
 CMD_MAPPING_WRITE_PACK = 0xA5
 CMD_MACRO_READ = 0xAC
+CMD_MACRO_WRITE_START = 0xAD
+CMD_MACRO_WRITE_PACK = 0xAE
 CMD_PROFILE_SAVE = 0xA6
 CMD_LED_READ = 0xA7
 CMD_LED_WRITE_START = 0xA8
@@ -103,6 +105,19 @@ def mapping_read_request(profile: int) -> bytes:
 def macro_read_request(profile: int) -> bytes:
     mapping_read_request(profile)  # same active PC profile range and chunk size
     return request(CMD_MACRO_READ, profile, BLOB_PACKET_SIZE)
+
+
+def macro_write_start(profile: int, start: int, count: int) -> bytes:
+    mapping_read_request(profile)
+    if any(type(x) is not int for x in (start, count)) or not 0 <= start < 81 or not 1 <= count <= 81-start:
+        raise ValueError('Invalid macro chunk range')
+    return request(CMD_MACRO_WRITE_START, profile, start, count, BLOB_PACKET_SIZE)
+
+
+def macro_write_pack(index: int, chunk: bytes) -> bytes:
+    if type(index) is not int or not 0 <= index < 81 or len(chunk) != BLOB_PACKET_SIZE:
+        raise ValueError('Invalid macro chunk')
+    return request(CMD_MACRO_WRITE_PACK, index, *chunk)
 
 
 def profile_save_request(version: int) -> bytes:

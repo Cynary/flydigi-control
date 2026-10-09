@@ -16,7 +16,7 @@ parser test does not establish that the corresponding control works on hardware.
 | Triggers | Candidate edits travel range and per-side vibration amplitude, threshold and strength; one shared enable flag | Hardware response/save tests; native Steam Input interaction |
 | Motion | Raw gyro/acceleration diagnostics; candidate gyro-to-stick editor with activation, sensitivity and deadzone compensation | Hardware effect and persistence, two-button behavior, mouse path and streaming verification; hidden vendor smoothing fields are preserved |
 | Profiles | Active profile can be read; Fn shortcut control exists | Profile management, backups/import/export and safe save/restore |
-| Macros/Turbo | Turbo and rapid-fire controls; separate-bank backup/readback; offline macro codec matches vendor serializer | Couch macro editor, hardware write/save sequence and firmware shortcut behavior validation |
+| Macros/Turbo | Turbo and rapid-fire controls; separate-bank backup/readback; candidate couch macro editor and guarded onboard save; codec matches vendor serializer | Physical activation/save tests; macro recording, renaming/deletion and firmware shortcut behavior validation |
 | Global settings | Candidate edits firmware filtering, automatic calibration, rebound suppression, precision, center sensitivity and sleep, with capability checks | Hardware behavior and persistence; report-rate writes need protocol clarification |
 | Calibration/device tools | Automatic-calibration switch implemented; manual procedure not implemented | Inventory manual calibration, firmware/receiver and other Vader tools before claiming parity |
 | Wake | Receiver does not advertise USB remote wake | No supported method identified; do not claim controller wake works |

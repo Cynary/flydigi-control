@@ -45,7 +45,8 @@ Each UI upload first saves a backup beneath `~/.local/state/flydigi-control/`. T
 ## Settings persistence
 
 The installed application uploads working settings but does not save them onboard. The candidate in this branch implements guarded onboard saving.
-The user confirmed that reconnecting the Vader restores its previous lights.
+The user reported that reconnecting the Vader loses the newly applied lighting
+and restores the previously stored settings.
 Saving the last successfully applied settings is required before release, including
 color, brightness, animation and speed. Turbo, Fn shortcuts and native-mapping
 permission need their own off/on checks rather than assuming they share the LED

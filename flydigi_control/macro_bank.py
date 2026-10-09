@@ -1,7 +1,7 @@
 """Bounded codec for the separate macro bank used by mapping format 3.2.
 
-This module edits bytes offline. It does not send macro writes or change button
-bindings. Hardware write integration awaits a real bank capture and verification.
+This module edits bytes offline. The guarded persistence transaction handles
+explicit saves. Hardware behavior still needs verification.
 """
 from dataclasses import dataclass
 import struct
@@ -44,6 +44,8 @@ def decode_bank(blob):
     if len(blob) != BANK_SIZE:
         raise ValueError('Expected an 81 × 20-byte macro bank')
     version,count = struct.unpack_from('<HH',blob)
+    if version != 0x100:
+        raise ValueError('Unsupported macro-bank version')
     if count > MAX_MACROS:
         raise ValueError('Unknown or uninitialized macro bank; no changes made')
     offsets = [24 + 4*struct.unpack_from('<H',blob,4+2*i)[0] for i in range(count)]
