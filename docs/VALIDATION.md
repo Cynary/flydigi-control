@@ -238,3 +238,10 @@ working after the receiver power-cycle. Physical off/on validation remains the
 next gate. The app records its source path, initialization errors and changes to
 focus/device IDs in a bounded local log (256 KiB plus two rotated files); button
 values are not logged there.
+
+The subsequent 60-second physical button test recorded 27,371 raw reports and
+all 27 named button states, including LM, RM, Fn and Turbo, with no missing
+buttons. Steam simultaneously listed exactly one native Vader (style 7). The
+Steam event capture started partway through that test, so this is not yet proof
+of every extra button's Steam action delivery. The off/on navigation and settings
+check remains pending.
