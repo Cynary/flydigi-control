@@ -128,6 +128,15 @@ class ProtocolTests(unittest.TestCase):
                 device.exchange(protocol.request(0x13, 4, 1))
             self.assertEqual(once.call_count, 1)
 
+    def test_missing_mapping_ack_requires_successful_readback(self):
+        device = ConfigurationDevice('unused')
+        with patch.object(device, 'info'), patch.object(device, 'exchange', side_effect=TimeoutError()), \
+             patch.object(device, 'mapping_status', return_value={'third_party_control': True}):
+            device.set_third_party_control(True)
+        with patch.object(device, 'info'), patch.object(device, 'exchange', side_effect=TimeoutError()), \
+             patch.object(device, 'mapping_status', return_value={'third_party_control': False}):
+            with self.assertRaises(RuntimeError):device.set_third_party_control(True)
+
     def test_other_feature_writes_rejected(self):
         with patch('os.write') as write:
             with self.assertRaises(ValueError):

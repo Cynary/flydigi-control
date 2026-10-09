@@ -1,26 +1,41 @@
 """Couch configuration window, suitable for a non-Steam library shortcut."""
 from __future__ import annotations
 import sys
+import json
+import os
+import time
+from pathlib import Path
 from PySide6.QtCore import Qt, QTimer, QThread, Signal
 from PySide6.QtGui import QKeyEvent
 from PySide6.QtWidgets import (QApplication, QWidget, QLabel, QPushButton,
     QVBoxLayout, QHBoxLayout, QGridLayout, QSlider, QComboBox, QStackedWidget)
 from .transport import discover, ConfigurationDevice
 from .navigation import GamepadNavigation
+from .lighting import PALETTE, GRADIENT, make_blob
 
 
 class ApplyColor(QThread):
     result = Signal(bool, str)
 
-    def __init__(self, path, color, parent=None):
+    def __init__(self, path, mode, colors, brightness, period, parent=None):
         super().__init__(parent)
-        self.path, self.color = path, color
+        self.path, self.mode, self.colors = path, mode, colors
+        self.brightness, self.period = brightness, period
 
     def run(self):
         try:
             with ConfigurationDevice(self.path) as device:
-                device.set_color(*self.color)
-            self.result.emit(True, 'Color command sent. Check the lights; this is a temporary change.')
+                profile, original = device.read_lighting()
+                folder = Path(os.environ.get('XDG_STATE_HOME', str(Path.home() / '.local/state'))) / 'flydigi-control'
+                folder.mkdir(parents=True, exist_ok=True)
+                backup = folder / ('lighting-' + str(time.time_ns()) + '.json')
+                backup.write_text(json.dumps({'profile': profile, 'blob': original.hex()}, indent=2))
+                blob = make_blob(original, self.mode, self.colors, self.brightness, self.period)
+                device.write_lighting(profile, blob)
+                actual_profile, actual = device.read_lighting()
+                if actual_profile != profile or actual != blob:
+                    raise RuntimeError('Controller lighting readback differs from the request; original settings are backed up.')
+            self.result.emit(True, 'Lighting applied and read back. Temporary: turning the controller off restores saved lights.')
         except (OSError, ValueError, RuntimeError) as error:
             self.result.emit(False, str(error))
 
@@ -51,25 +66,53 @@ class FeatureOperation(QThread):
             self.result.emit(False, str(error))
 
 
+class ButtonTest(QThread):
+    report = Signal(object)
+    result = Signal(bool, str)
+
+    def __init__(self, path, parent=None):
+        super().__init__(parent)
+        self.path = path
+
+    def run(self):
+        from .capture import monitor
+        folder = Path(os.environ.get('XDG_STATE_HOME', str(Path.home() / '.local/state'))) / 'flydigi-control'
+        try:
+            folder.mkdir(parents=True, exist_ok=True)
+            target = folder / time.strftime('buttons-%Y%m%d-%H%M%S.jsonl')
+            with target.open('w') as file:
+                worker = self
+                class Output:
+                    def write(self, line):
+                        file.write(line)
+                        worker.report.emit(json.loads(line))
+                    def flush(self):
+                        file.flush()
+                monitor(self.path, 60, Output())
+            self.result.emit(True, 'Finished. Saved the report to ' + str(target))
+        except (OSError, ValueError, RuntimeError) as error:
+            self.result.emit(False, str(error))
+
+
 class Window(QWidget):
-    COLORS = [('Ice blue', '#45c5ff'), ('Purple', '#a078ff'), ('Pink', '#fa75c0'),
-              ('Green', '#79db9c'), ('Amber', '#ffb84a'), ('White', '#ffffff')]
+    COLORS = PALETTE
 
     def __init__(self):
         super().__init__()
         self.setWindowTitle('Flydigi Control')
         self.resize(1280, 800)
         self.worker = None
-        self.selected = '#45c5ff'
+        self.testing = False
+        self.selected = '#ff00ff'
         self.devices = []
         self.feature_values = {}
         self.setStyleSheet('''
-            QWidget { background:#171d25; color:#e8edf3; font:24px "Sans Serif"; }
+            QWidget { background:#171d25; color:#e8edf3; font:22px "Sans Serif"; }
             QLabel#eyebrow { color:#7b9ab5; font-size:18px; }
-            QLabel#title { font-size:46px; font-weight:600; }
+            QLabel#title { font-size:36px; font-weight:600; }
             QLabel#muted { color:#a9bacb; font-size:21px; }
             QPushButton, QComboBox { background:#293848; border:3px solid transparent;
-                border-radius:10px; padding:17px; text-align:left; }
+                border-radius:10px; padding:12px; text-align:left; }
             QPushButton:focus, QComboBox:focus { border-color:#77cdff; background:#3c536a; }
             QPushButton:disabled { color:#8e9bab; }
             QSlider { padding:15px; border:3px solid transparent; border-radius:10px; }
@@ -78,8 +121,8 @@ class Window(QWidget):
             QSlider::handle:horizontal { background:#77cdff; width:24px; margin:-8px 0; border-radius:10px; }
         ''')
         layout = QVBoxLayout(self)
-        layout.setContentsMargins(64, 40, 64, 35)
-        layout.setSpacing(18)
+        layout.setContentsMargins(48, 24, 48, 24)
+        layout.setSpacing(12)
         self.label(layout, 'MOONMACHINE  /  CONTROLLERS', 'eyebrow')
         self.label(layout, 'Flydigi Vader 5 Pro', 'title')
         self.status = self.label(layout, '', 'muted')
@@ -90,18 +133,24 @@ class Window(QWidget):
         tabs = QHBoxLayout()
         self.lighting_tab = QPushButton('Lighting')
         self.settings_tab = QPushButton('Controller settings')
+        self.test_tab = QPushButton('Test buttons')
         tabs.addWidget(self.lighting_tab)
         tabs.addWidget(self.settings_tab)
+        tabs.addWidget(self.test_tab)
         layout.addLayout(tabs)
         self.pages = QStackedWidget()
         layout.addWidget(self.pages)
         self.lighting_tab.clicked.connect(lambda: self.pages.setCurrentIndex(0))
         self.settings_tab.clicked.connect(lambda: self.pages.setCurrentIndex(1))
+        self.test_tab.clicked.connect(lambda: self.pages.setCurrentIndex(2))
         root_layout = layout
         lighting_page = QWidget()
         layout = QVBoxLayout(lighting_page)
         self.pages.addWidget(lighting_page)
-        self.label(layout, 'Lighting', 'title')
+        self.effect = QComboBox()
+        for label, mode in [('Steady', 5), ('Breathing', 2), ('Gradient (blue / red / green)', 3)]:
+            self.effect.addItem(label, mode)
+        layout.addWidget(self.effect)
         grid = QGridLayout()
         self.color_buttons = []
         for index, (name, color) in enumerate(self.COLORS):
@@ -110,15 +159,21 @@ class Window(QWidget):
             grid.addWidget(button, index // 3, index % 3)
             self.color_buttons.append(button)
         layout.addLayout(grid)
-        self.brightness_label = self.label(layout, 'Brightness · 50%', 'muted')
+        self.brightness_label = self.label(layout, 'Brightness · 30%', 'muted')
         self.brightness = QSlider(Qt.Orientation.Horizontal)
         self.brightness.setRange(0, 100)
-        self.brightness.setValue(50)
+        self.brightness.setValue(30)
         self.brightness.setSingleStep(5)
         self.brightness.valueChanged.connect(lambda v: self.brightness_label.setText(f'Brightness · {v}%'))
         layout.addWidget(self.brightness)
+        self.period_label = self.label(layout, 'Cycle time · 15 (lower is faster)', 'muted')
+        self.period = QSlider(Qt.Orientation.Horizontal)
+        self.period.setRange(1, 100)
+        self.period.setValue(15)
+        self.period.valueChanged.connect(lambda v: self.period_label.setText(f'Cycle time · {v} (lower is faster)'))
+        layout.addWidget(self.period)
         row = QHBoxLayout()
-        self.apply = QPushButton('Apply ice blue')
+        self.apply = QPushButton('Apply magenta')
         self.apply.clicked.connect(self.apply_color)
         row.addWidget(self.apply)
         self.off = QPushButton('Turn lights off')
@@ -153,10 +208,25 @@ class Window(QWidget):
         self.settings_result = self.label(settings, 'Read the controller before changing a setting.', 'muted')
         self.settings_result.setWordWrap(True)
         settings.addStretch()
+        test_page = QWidget()
+        test_layout = QVBoxLayout(test_page)
+        self.pages.addWidget(test_page)
+        self.label(test_layout, 'Test buttons', 'title')
+        self.label(test_layout, 'Press each button separately. During this 60-second test, buttons\n'
+                               'cannot navigate the app or change settings.', 'muted')
+        self.test_start = QPushButton('Start 60-second test')
+        self.test_start.clicked.connect(self.start_button_test)
+        test_layout.addWidget(self.test_start)
+        self.test_result = self.label(test_layout, 'Native Steam Input must be active to receive extra-button reports.', 'muted')
+        self.test_result.setWordWrap(True)
+        self.test_buttons = self.label(test_layout, '', 'muted')
+        self.test_buttons.setWordWrap(True)
+        self.test_seen = set()
+        test_layout.addStretch()
         self.label(root_layout, 'D-pad / stick: navigate    A: select    B: return to Steam', 'eyebrow')
-        self.controls = [self.device_box, self.lighting_tab, self.settings_tab,
-                         *self.color_buttons, self.brightness, self.apply, self.off,
-                         self.read_settings, self.native, self.turbo, self.hotkeys]
+        self.controls = [self.device_box, self.lighting_tab, self.settings_tab, self.test_tab,
+                         self.effect, *self.color_buttons, self.brightness, self.period, self.apply, self.off,
+                         self.read_settings, self.native, self.turbo, self.hotkeys, self.test_start]
         for control in self.controls:
             control.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
         try:
@@ -202,6 +272,9 @@ class Window(QWidget):
 
     def show_device(self):
         busy = self.worker is not None
+        for tab in (self.lighting_tab, self.settings_tab, self.test_tab):
+            tab.setEnabled(not self.testing)
+        self.test_start.setEnabled(bool(self.devices) and not busy)
         self.apply.setEnabled(bool(self.devices) and not busy)
         self.off.setEnabled(bool(self.devices) and not busy)
         self.device_box.setEnabled(bool(self.devices) and not busy)
@@ -229,9 +302,11 @@ class Window(QWidget):
     def apply_color(self, checked=False, off=False):
         if self.worker is not None or not self.devices:
             return
-        level = 0 if off else self.brightness.value() / 100
-        color = tuple(round(int(self.selected[i:i+2], 16) * level) for i in (1, 3, 5))
-        self.worker = ApplyColor(self.device_box.currentData(), color, self)
+        mode = 6 if off else self.effect.currentData()
+        color = tuple(int(self.selected[i:i+2], 16) for i in (1, 3, 5))
+        colors = GRADIENT if mode == 3 else (color,)
+        self.worker = ApplyColor(self.device_box.currentData(), mode, colors,
+                                 self.brightness.value(), self.period.value(), self)
         self.worker.result.connect(lambda ok, text: self.result_label.setText(text))
         self.worker.finished.connect(self.applied)
         self.result_label.setText('Sending lighting command…')
@@ -266,16 +341,51 @@ class Window(QWidget):
         if value and value['supported']:
             self.feature_operation(name, not value['enabled'])
 
+    def start_button_test(self):
+        if self.worker is not None or not self.devices:
+            return
+        self.testing = True
+        self.test_seen = set()
+        self.test_buttons.setText('Waiting for input…')
+        self.test_result.setText('Recording for 60 seconds. Navigation is disabled until it finishes.')
+        self.worker = ButtonTest(self.device_box.currentData(), self)
+        self.worker.report.connect(self.button_test_report)
+        self.worker.result.connect(lambda ok, text: self.test_result.setText(text))
+        self.worker.finished.connect(self.button_test_finished)
+        self.show_device()
+        self.worker.start()
+
+    def button_test_report(self, value):
+        if value['event'] == 'buttons':
+            self.test_seen.update(value['pressed'])
+            self.test_buttons.setText('Pressed: ' + (', '.join(value['pressed']) or 'none') +
+                                      '\n\nSeen: ' + ', '.join(sorted(self.test_seen)))
+        elif value['event'] == 'summary':
+            self.test_buttons.setText('Seen: ' + ', '.join(value['buttons_seen']) +
+                                      '\n\nNot seen: ' + ', '.join(value['buttons_not_seen']))
+
+    def button_test_finished(self):
+        self.worker.deleteLater()
+        self.worker = None
+        self.testing = False
+        self.show_device()
+        self.test_start.setFocus()
+
     def poll_navigation(self):
         if self.navigation is None or not self.isActiveWindow():
             return
-        for action in self.navigation.poll():
+        actions = self.navigation.poll()
+        if self.testing:
+            return
+        for action in actions:
             key = {'up': Qt.Key.Key_Up, 'down': Qt.Key.Key_Down,
                    'left': Qt.Key.Key_Left, 'right': Qt.Key.Key_Right,
                    'accept': Qt.Key.Key_Return, 'back': Qt.Key.Key_Escape}[action]
             self.keyPressEvent(QKeyEvent(QKeyEvent.Type.KeyPress, key, Qt.KeyboardModifier.NoModifier))
 
     def keyPressEvent(self, event):
+        if self.testing:
+            return
         key = event.key()
         focused = QApplication.focusWidget()
         if key == Qt.Key.Key_Escape:
@@ -285,9 +395,9 @@ class Window(QWidget):
                 focused.click()
         elif key in (Qt.Key.Key_Left, Qt.Key.Key_Right) and isinstance(focused, QSlider):
             focused.setValue(focused.value() + (5 if key == Qt.Key.Key_Right else -5))
-        elif key in (Qt.Key.Key_Left, Qt.Key.Key_Right) and focused is self.device_box:
+        elif key in (Qt.Key.Key_Left, Qt.Key.Key_Right) and isinstance(focused, QComboBox):
             delta = 1 if key == Qt.Key.Key_Right else -1
-            self.device_box.setCurrentIndex((self.device_box.currentIndex() + delta) % max(1, self.device_box.count()))
+            focused.setCurrentIndex((focused.currentIndex() + delta) % max(1, focused.count()))
         elif key in (Qt.Key.Key_Up, Qt.Key.Key_Left, Qt.Key.Key_Down, Qt.Key.Key_Right):
             controls = [w for w in self.controls if w.isEnabled() and w.isVisible()]
             index = controls.index(focused) if focused in controls else 0
@@ -299,7 +409,7 @@ class Window(QWidget):
     def closeEvent(self, event):
         if self.worker is not None:
             event.ignore()
-            self.result_label.setText('Finishing the lighting command before closing…')
+            self.result_label.setText('Finishing the controller operation before closing…')
             self.worker.finished.connect(self.close)
             return
         if self.navigation is not None:

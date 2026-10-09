@@ -97,3 +97,5 @@ The command-line equivalent is `python3 -m flydigi_control --native-input on`.
 Use `--mapping-status` to read the permission and current owner.
 Native detection has been checked on firmware 7.1.5.0; complete Steam button
 mapping and duplicate-interface handling are still being validated.
+
+For the supported lighting modes, official presets and current implementation gaps, see [Lighting](docs/LIGHTING.md). Use **Test buttons** when checking extra buttons: navigation is disabled during recording.

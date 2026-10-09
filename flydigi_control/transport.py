@@ -152,6 +152,60 @@ class ConfigurationDevice:
         # A successful write confirms delivery to USB, not the visible result.
         self.send(protocol.led_test_color(red, green, blue))
 
+    def active_profile(self):
+        reply = self.exchange(protocol.profile_versions_request())
+        if reply[5] > 7:
+            raise ValueError('Unknown active profile; lighting was not changed')
+        return protocol.active_profile(reply)
+
+    def read_lighting(self):
+        """Read only the active profile: A7 can select the profile it reads."""
+        self.info()
+        profile = self.active_profile()
+        list(self._read())
+        self.send(protocol.led_read_request(profile))
+        packets = {}
+        count = None
+        deadline = time.monotonic() + 2
+        while (remaining := deadline - time.monotonic()) > 0:
+            select.select([self.fd], [], [], remaining)
+            for reply in self._read():
+                if len(reply) != 32 or reply[:3] != protocol.MAGIC + bytes([protocol.CMD_LED_READ]):
+                    continue
+                total, index = reply[3:5]
+                if not 1 <= total <= 64 or index >= total or count not in (None, total):
+                    raise ValueError('Inconsistent lighting reply')
+                count = total
+                chunk = bytes(reply[6:26])
+                if index in packets and packets[index] != chunk:
+                    raise ValueError('Conflicting lighting reply')
+                packets[index] = chunk
+                if len(packets) == count:
+                    blob = b''.join(packets[i] for i in range(count))
+                    from .lighting import validate_blob
+                    validate_blob(blob)
+                    return profile, blob
+        raise TimeoutError('Incomplete lighting reply; no settings were written')
+
+    def write_lighting(self, profile, blob):
+        from .lighting import validate_blob
+        validate_blob(blob)
+        self.info()
+        if self.active_profile() != profile:
+            raise ValueError('Controller profile changed; read lighting again')
+        chunks = [blob[i:i+20] for i in range(0, len(blob), 20)]
+        self.exchange(protocol.led_write_start(profile, len(chunks)))
+        for index, chunk in enumerate(chunks):
+            packet = protocol.led_write_pack(index, chunk)
+            try:
+                self.exchange(packet)
+            except TimeoutError:
+                # This replaces bytes at an explicit chunk index; replaying
+                # it is idempotent. A different read command also clears the
+                # firmware's repeated-command suppression before the retry.
+                self.info()
+                self.exchange(packet)
+
     def mapping_status(self):
         reply = self.exchange(protocol.request(0x10))
         return {'third_party_control': reply[9] == 1,
@@ -163,7 +217,10 @@ class ConfigurationDevice:
             raise ValueError('Choose a boolean state')
         self.info()
         # 0xff leaves each stream setting alone; Steam acquires it itself.
-        self.exchange(protocol.request(0x11, 255, 255, 255, 255, int(enabled)))
+        try:
+            self.exchange(protocol.request(0x11, 255, 255, 255, 255, int(enabled)))
+        except TimeoutError:
+            pass  # Ownership may change immediately; readback establishes success.
         if self.mapping_status()['third_party_control'] != enabled:
             raise RuntimeError('Controller did not retain third-party mapping permission')
 
@@ -179,6 +236,9 @@ class ConfigurationDevice:
         if not self.features()[name]['supported']:
             raise ValueError('Controller firmware does not advertise this feature')
         subcommand = 1 if name == 'profile_hotkeys' else 4
-        self.exchange(protocol.request(0x13, subcommand, int(enabled)))
+        try:
+            self.exchange(protocol.request(0x13, subcommand, int(enabled)))
+        except TimeoutError:
+            pass  # Never replay a feature toggle; check its actual state instead.
         if self.features()[name]['enabled'] != enabled:
             raise RuntimeError('Controller did not retain the requested setting')

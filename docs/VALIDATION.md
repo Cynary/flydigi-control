@@ -106,3 +106,22 @@ The configuration app was installed in the test user's application directory,
 added through Steam's shortcut API and launched through Steam. Steam's process
 log tracks its Python process as the shortcut. Controller-only navigation and
 visible LED results still need user verification.
+
+## 2026-10-08: official lighting app and safe button testing
+
+Inspected the official Space Station 4.2.0.9 Electron UI and .NET service. See
+[Lighting](LIGHTING.md) for exact presets, supported modes, evidence and gaps.
+On firmware 7.1.5.0, steady, breathing and gradient configurations passed exact
+hardware readback, including repeated uploads. The active profile reports 10
+zones / 10 frames. One LED chunk acknowledgement was lost despite its data
+arriving; indexed retries are bounded, and UI uploads verify the complete result.
+
+The native-mapping permission was found disabled after a settings-page button
+test, with no USB disconnect. A paddle mapped to activation is a plausible cause,
+not a proven one. A dedicated 60-second test page now suppresses navigation and
+setting changes while collecting reports. Native permission was restored and
+Steam restarted; Steam reports the native controller style and extra-button
+capabilities again. Physical validation of every extra button remains pending.
+
+All 23 unit/UI tests pass on the K17. An offscreen screenshot was inspected for
+clipped controls. Visual color/animation confirmation is still pending.

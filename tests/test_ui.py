@@ -53,12 +53,23 @@ class UITests(unittest.TestCase):
         self.press(Qt.Key.Key_Return)
         self.assertEqual(self.window.pages.currentIndex(), 1)
         self.press(Qt.Key.Key_Down)
-        self.assertIs(QApplication.focusWidget(), self.window.lighting_tab)
+        self.assertIs(QApplication.focusWidget(), self.window.test_tab)
+        self.window.lighting_tab.setFocus()
         self.press(Qt.Key.Key_Return)
         self.assertEqual(self.window.pages.currentIndex(), 0)
         self.window.brightness.setFocus()
         self.press(Qt.Key.Key_Left)
-        self.assertEqual(self.window.brightness.value(), 45)
+        self.assertEqual(self.window.brightness.value(), 25)
+
+    def test_button_test_cannot_activate_settings_or_exit(self):
+        self.window.testing = True
+        self.window.settings_tab.setFocus()
+        before = self.window.pages.currentIndex()
+        self.press(Qt.Key.Key_Return)
+        self.press(Qt.Key.Key_Escape)
+        self.assertEqual(self.window.pages.currentIndex(), before)
+        self.assertTrue(self.window.isVisible())
+        self.window.testing = False
 
     def test_device_change_clears_feature_state(self):
         self.window.feature_values = {'turbo': {'supported': True, 'enabled': True}}
