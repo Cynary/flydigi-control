@@ -32,6 +32,7 @@ Command-line checks:
 python3 -m flydigi_control --probe       # USB identity and wake capability; no commands sent
 python3 -m flydigi_control --info        # controller identity and firmware
 python3 -m flydigi_control --features    # current Turbo and Fn profile shortcut settings
+python3 -m flydigi_control --monitor 60  # passive button capture while Steam owns native input
 python3 -m flydigi_control --color '#0080ff'
 python3 -m flydigi_control --turbo on
 python3 -m flydigi_control --profile-hotkeys on
