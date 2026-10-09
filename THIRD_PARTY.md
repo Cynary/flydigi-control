@@ -13,3 +13,12 @@ Turbo and Fn profile feature IDs and capability bits were cross-checked against
 [rR6kULhc5xgS/flydigi-vader-pro-5-ctl](https://github.com/rR6kULhc5xgS/flydigi-vader-pro-5-ctl),
 `docs/protocol-settings.md` and `flydigi/commands.py`. New transport code implements
 only these two feature toggles, with capability checks and state read-back.
+
+The numeric lighting presets in `flydigi_control/lighting.py` describe Space
+Station 4.2.0.9's Flow animation and device-type-130 factory lighting. They are
+included for interoperability with the Vader 5 Pro, not claimed as original
+artwork. The factory data came from
+`Configs/Controller/f5/default/default_mapping_130.dat`; the reference harness
+and [lighting notes](docs/LIGHTING.md) document the extraction and validation.
+Vendor executables, assemblies, configuration files and decompiled source are
+not distributed here.
