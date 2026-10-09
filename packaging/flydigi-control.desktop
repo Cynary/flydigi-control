@@ -1,0 +1,7 @@
+[Desktop Entry]
+Name=Flydigi Control
+Comment=Configure your Vader 5 Pro lighting
+Exec=flydigi-control
+Terminal=false
+Type=Application
+Categories=Game;Settings;

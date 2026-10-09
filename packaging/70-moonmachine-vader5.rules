@@ -1,0 +1,2 @@
+# Allow the logged-in desktop user to configure this controller.
+SUBSYSTEM=="hidraw", KERNEL=="hidraw*", ATTRS{idVendor}=="37d7", ATTRS{idProduct}=="2401", TAG+="uaccess"
