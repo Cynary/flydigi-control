@@ -7,7 +7,7 @@ sees the physical controls.
 
 | Requirement | Evidence so far | Still needed |
 | --- | --- | --- |
-| M1–M4, C/Z, LM/RM, Fn, Turbo | All ten captured from hardware; patched parser agrees. Steam events confirm M1–M4, C/Z, Fn and Turbo | LM/RM Steam events and an assigned-action test; Turbo reports a short pulse rather than a held state |
+| M1–M4, C/Z, LM/RM, Fn, Turbo | All ten captured from hardware; patched parser agrees. Steam events confirm all ten, including LM/RM press and release | Assigned-action test; Turbo reports a short pulse rather than a held state |
 | LEDs | Steady, breathing and gradient configurations pass complete readback; user confirmed corrected colors | Visual animation and brightness/off checks |
 | Steam Input | All ten extra controls accept bindings in Steam's editor. Native/fallback transitions expose one controller and release stale button state | Physical binding delivery |
 | Couch app | Installed image app launches through its Steam shortcut; user operated the color picker and button test; automated navigation checks pass | Off/on recovery confirmed by user; navigation polish remains |
@@ -273,3 +273,7 @@ uses a zero HIDAPI report ID for Vader V2 rumble. A new USB capture confirmed
 correct start and stop packets, and the user confirmed feeling Steam's pulse.
 The callback regression checks both motors, stop, other models' framing and
 write errors. Trigger-motor rumble is not implemented in SDL yet.
+
+The final isolated LM/RM check recorded Steam bits 34 and 35, respectively,
+with separate releases. All ten extra controls now have physical Steam event
+evidence. A dedicated test shortcut is being used for assigned-action delivery.
