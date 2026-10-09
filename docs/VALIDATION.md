@@ -255,7 +255,11 @@ The SDL fork now preserves the first identity-reply battery reading before
 opening the joystick and confirms empty readings after two seconds. Confirmed
 empty readings still report 0%; unknown states are not converted to empty.
 The hardware probe reports 40%. Steam can still initially display 100%;
-that UI initialization issue remains under investigation. Battery levels are
+that UI initialization issue remains under investigation. On the packaged-image
+reboot, the user confirmed continued connection and navigation, followed by
+Steam correcting its battery display to 40%. The normal driver heartbeat queries
+battery every 30 seconds; the exact update that corrected this display was not
+captured. Battery levels are
 coarse firmware estimates in 20% steps, not a calibrated capacity measurement.
 
 Steam's **Turn off controller** currently does nothing for this native device:
