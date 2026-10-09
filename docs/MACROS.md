@@ -16,7 +16,11 @@ was absent during development, and no AC reply capture is available yet.
 
 ## Bank format
 
-The separate bank contains 81 packets of 20 bytes. It starts with a 16-bit version
+The SDK writes 81 packets of 20 bytes. Vader 5 firmware 7.1.5.0 returns 83
+packets when reading the bank. We preserve the extra 40 bytes verbatim and do
+not use them as additional macro capacity. Edits, restores and factory defaults
+must retain the controller's readback length and those trailing bytes.
+The bank starts with a 16-bit version
 and macro count, followed by ten 16-bit offsets measured in four-byte units from
 byte 24. Each macro has a 32-byte header and four bytes per action:
 

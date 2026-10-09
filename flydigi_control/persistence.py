@@ -134,7 +134,9 @@ def apply_configuration(device, backup_dir, *, lighting_update=None, mapping_upd
         raise ValueError('Macro editing requires mapping format 3.2')
     updated_macros = macro_update(macros) if macro_update else macros
     if macro_update:
-        from .macro_bank import decode_bank
+        from .macro_bank import BANK_SIZE, decode_bank
+        if len(macros) != len(updated_macros) or macros[BANK_SIZE:] != updated_macros[BANK_SIZE:]:
+            raise ValueError('An edit must preserve macro-bank geometry and reserved tail')
         if decode_bank(macros).version != decode_bank(updated_macros).version:
             raise ValueError('An edit must preserve the macro-bank version')
     led_profile, original = device.read_lighting()

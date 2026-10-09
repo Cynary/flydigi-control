@@ -20,6 +20,14 @@ def ready_controller():
 
 
 class FactoryProfileTests(unittest.TestCase):
+    def test_physical_macro_extent_preserved_by_factory_restore(self):
+        device=ready_controller();device.macros+=bytes(range(40))
+        current=snapshot(device);source=source_for(current)
+        self.assertEqual(bytes.fromhex(source['macros'])[1620:],bytes(range(40)))
+        with tempfile.TemporaryDirectory() as folder:
+            actual,_=restore(device,source,current,folder)
+        self.assertEqual(len(bytes.fromhex(actual['macros'])),1660)
+
     def test_each_profile_matches_vendor_values_without_version_reset(self):
         digests = json.loads((Path(__file__).parent/'fixtures/factory-profile-digests.json').read_text())
         for profile in range(4):

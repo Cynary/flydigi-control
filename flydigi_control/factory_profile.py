@@ -4,7 +4,7 @@ from importlib.resources import files
 import json
 
 from .lighting import validate_blob
-from .macro_bank import decode_bank
+from .macro_bank import BANK_SIZE, decode_bank
 from .profile_restore import restore_data
 
 
@@ -27,7 +27,7 @@ def source_for(current):
         lighting = bytes.fromhex(current['lighting'])
         if len(lighting) != 320 or validate_blob(lighting) != (10,10):
             raise ValueError('Unrecognized lighting geometry; factory restore is unavailable')
-        decode_bank(bytes.fromhex(current['macros']))
+        bank = decode_bank(bytes.fromhex(current['macros']))
         presets = json.loads(files('flydigi_control').joinpath('factory_vader5.json').read_text())
         preset = presets['profiles'][profile]
         mapping = bytearray.fromhex(preset['mapping'])
@@ -36,7 +36,7 @@ def source_for(current):
         mapping[225:227] = live[225:227]
         source = deepcopy(current)
         source.update(mapping=mapping.hex(), lighting=preset['lighting'],
-                      macros=(bytes.fromhex('00010000')+bytes([255])*1616).hex())
+                      macros=(bytes.fromhex('00010000')+bytes([255])*1616+bank.raw[BANK_SIZE:]).hex())
         restore_data(source,current)  # Share compatibility checks with backup restoration.
         return source
     except (KeyError, TypeError, IndexError, AttributeError) as error:

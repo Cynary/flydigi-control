@@ -7,6 +7,9 @@ from dataclasses import dataclass
 import struct
 
 BANK_SIZE = 81 * 20
+# SDK writes 81 chunks; firmware 7.1.5.0 returns 83. Preserve the extra
+# readback bytes without treating them as additional macro capacity.
+READBACK_SIZES = (BANK_SIZE, 83 * 20)
 MAX_MACROS = 10
 MAX_ACTIONS = 256
 
@@ -41,8 +44,8 @@ class Bank:
 
 
 def decode_bank(blob):
-    if len(blob) != BANK_SIZE:
-        raise ValueError('Expected an 81 × 20-byte macro bank')
+    if len(blob) not in READBACK_SIZES:
+        raise ValueError('Expected an 81 or 83 × 20-byte macro bank')
     version,count = struct.unpack_from('<HH',blob)
     if version != 0x100:
         raise ValueError('Unsupported macro-bank version')
@@ -164,7 +167,7 @@ def _pack(bank, records):
         raise ValueError('The controller supports at most 10 macros')
     if sum((len(raw)-32)//4 for raw in records)>MAX_ACTIONS:
         raise ValueError('Macro bank exceeds 256 total actions')
-    result=bytearray(b'\xff'*BANK_SIZE)
+    result=bytearray(b'\xff'*BANK_SIZE + bank.raw[BANK_SIZE:])
     struct.pack_into('<HH',result,0,bank.version,len(records))
     offset=24
     for i,raw in enumerate(records):

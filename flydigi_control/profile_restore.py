@@ -45,6 +45,9 @@ def restore_data(source, current):
         if mapping[0] >= 2:
             macros = bytes.fromhex(source['macros'])
             bank = decode_bank(macros); live_bank = decode_bank(bytes.fromhex(current['macros']))
+            from .macro_bank import BANK_SIZE
+            if len(bank.raw) != len(live_bank.raw) or bank.raw[BANK_SIZE:] != live_bank.raw[BANK_SIZE:]:
+                raise ValueError('Macro-bank geometry or reserved tail differs')
             if bank.version != live_bank.version: raise ValueError('Macro bank format differs')
             for record in bank.records: validate_execution(record.macro)
         elif source['macros'] is not None or current['macros'] is not None:

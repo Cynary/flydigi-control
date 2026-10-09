@@ -21,6 +21,39 @@ def sample(key=18):
 
 
 class MacroBankTests(unittest.TestCase):
+    def test_physical_83_chunk_readback_preserves_tail_on_edit_and_remove(self):
+        from flydigi_control.macro_bank import remove_macro
+        data=json.loads((Path(__file__).parent/'fixtures/vader5-7150-macro-readback.json').read_text())
+        blob=bytes.fromhex(data['hex'])
+        self.assertEqual(len(blob),1660)
+        self.assertEqual(decode_bank(blob).records,())
+        # Non-FF sentinels also survive, rather than accidentally being rebuilt.
+        blob=blob[:BANK_SIZE]+bytes(range(40))
+        edited=replace_macro(blob,sample())
+        removed=remove_macro(edited,sample().key)
+        for value in (edited,removed):
+            self.assertEqual(len(value),1660)
+            self.assertEqual(value[BANK_SIZE:],blob[BANK_SIZE:])
+        self.assertEqual(len(decode_bank(edited).records),1)
+        self.assertEqual(decode_bank(removed).records,())
+
+    def test_macro_transport_rejects_resize_or_reserved_tail_write(self):
+        d=ConfigurationDevice('unused')
+        blob=empty_bank()+bytes(range(40))
+        for updated in (empty_bank(),blob[:-1]+b'X'):
+            with patch.object(d,'read_macros') as read, patch.object(d,'exchange') as write:
+                with self.assertRaisesRegex(ValueError,'geometry or reserved tail'):
+                    d.write_macros(0,blob,updated)
+                read.assert_not_called();write.assert_not_called()
+
+    def test_save_rejects_macro_resize_before_any_write(self):
+        from flydigi_control.persistence import apply_configuration
+        device=Controller();device.macros=empty_bank()+bytes(range(40))
+        with tempfile.TemporaryDirectory() as folder:
+            with self.assertRaisesRegex(ValueError,'geometry and reserved tail'):
+                apply_configuration(device,folder,macro_update=lambda b:b[:BANK_SIZE])
+        self.assertEqual(device.writes,[])
+
     def test_matches_actual_vendor_serializer_vectors(self):
         vectors=json.loads(Path(__file__).with_name('macro_reference_vectors.json').read_text())
         for vector in vectors:
@@ -92,6 +125,15 @@ class MacroBankTests(unittest.TestCase):
         def reply(index):
             return bytes([0x5a,0xa5,0xac,81,index,1])+blob[index*20:(index+1)*20]+bytes(6)
         replies=[b'\x5a\xa5\xef'+bytes(29)]+[reply(i) for i in reversed(range(81))]
+        with patch.object(d,'profile_state',return_value=(1,(1,2,3,4))),patch.object(d,'send'),\
+             patch.object(d,'_read',side_effect=[[],replies]),patch('select.select'):
+            self.assertEqual(d.read_macros(1),blob)
+
+    def test_physical_chunk_count_is_read_without_truncation(self):
+        d=ConfigurationDevice('unused');d.fd=9
+        blob=empty_bank()+bytes(range(40))
+        replies=[bytes([0x5a,0xa5,0xac,83,i,1])+blob[i*20:(i+1)*20]+bytes(6)
+                 for i in reversed(range(83))]
         with patch.object(d,'profile_state',return_value=(1,(1,2,3,4))),patch.object(d,'send'),\
              patch.object(d,'_read',side_effect=[[],replies]),patch('select.select'):
             self.assertEqual(d.read_macros(1),blob)

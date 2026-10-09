@@ -456,3 +456,19 @@ verified in both the built Python wheel and the image install tree.
 The app, controller and booted image remain unchanged. Physical reset/undo,
 settings retention and motor verification are still pending. This feature is
 not included in the earlier unpublished full-image build.
+
+### Physical macro-bank readback
+
+2026-10-09: Two matching reads from Vader 5 firmware 7.1.5.0 returned 83 AC
+packets (1660 bytes), with version 0x100 and zero macros. The SDK serializer
+emits 81 packets, so the earlier size check blocked profile saves. The reader
+now accepts both observed layouts. The extra 40 bytes are preserved, cannot
+be edited or used as extra capacity, and cannot change through restoration.
+The empty physical readback is included as a test fixture.
+
+All 229 tests pass on the K17, including full 83-packet assembly, preservation
+of non-FF trailing bytes, factory restore with the longer bank, and rejection
+of size/tail changes before writing. A complete two-read settings snapshot now
+succeeds on hardware. Subsequent attempts to save stopped during their initial
+read because configuration replies timed out; no save was sent. Off/on
+persistence therefore remains unverified.

@@ -193,7 +193,8 @@ class ConfigurationDevice:
     def read_macros(self, profile):
         """Opaque backup of the separate bank used by mapping format 3.2."""
         blob = self._read_profile_blob(profile, protocol.macro_read_request(profile), 'macro')
-        if len(blob) != 81 * 20:
+        from .macro_bank import READBACK_SIZES
+        if len(blob) not in READBACK_SIZES:
             raise ValueError('Unexpected macro-bank size; no settings were saved')
         return blob
 
@@ -245,6 +246,9 @@ class ConfigurationDevice:
     def write_macros(self, profile, original, updated):
         from .macro_bank import decode_bank
         before, after = decode_bank(original), decode_bank(updated)
+        from .macro_bank import BANK_SIZE
+        if len(original) != len(updated) or original[BANK_SIZE:] != updated[BANK_SIZE:]:
+            raise ValueError('Macro-bank geometry or reserved tail changed')
         if before.version != after.version:
             raise ValueError('Macro-bank version changed')
         if self.read_macros(profile) != original:
