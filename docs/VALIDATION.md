@@ -60,7 +60,7 @@ calibration, rebound suppression, precision, center sensitivity and sleep contro
 Its packet and UI checks pass, but these new commands have not been sent to hardware.
 [Protocol details and remaining checks](HARDWARE-SETTINGS.md).
 
-2026-10-09: The `onboard-settings` candidate passes 186 protocol, persistence,
+2026-10-09: The `onboard-settings` candidate passes 192 protocol, persistence,
 diagnostic and Qt tests on the K17. Offscreen previews of the stick settings and
 analog/motor/response/trigger/grip/global-settings/button/motion-mapping/macro pages were inspected, using simulated input or
 the saved read-only profile. Curve samples
@@ -358,3 +358,11 @@ a PC copy. All 186 tests pass on the K17, including the Qt tests. The populated
 library page was rendered offscreen at 1280×1080 and inspected. These operations
 send no controller commands. Vendor-file conversion and online sharing remain
 unimplemented; physical macro activation and persistence are still unverified.
+
+### Space Station macro import
+
+Six new tests cover official serializer fixtures, defaults, template rebinding,
+malformed fields, unsafe/incomplete actions, unchanged source files and the
+controller-operated import UI. All 192 tests pass on the K17. The populated
+import page fits 1280×1080 and was visually inspected. No hardware write is
+performed during import. Vendor export and online sharing remain separate work.

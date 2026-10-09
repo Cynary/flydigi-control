@@ -1,6 +1,7 @@
 using System.Reflection;
 using System.Text.Json;
 using Flydigi.SharedResources.Data.Protobuf;
+using Google.Protobuf;
 
 var sdk = Assembly.Load("Flydigi.ControllerSdk");
 var parser = sdk.GetType("Flydigi.ControllerSDK.data.parser.MacroConfigParser")!.GetNestedType("MacroConfigParserV10", BindingFlags.NonPublic)!;
@@ -26,3 +27,17 @@ foreach (int count in new[]{0,1,2,10}) {
 }
 File.WriteAllText("macro-vendor-vectors.json",JsonSerializer.Serialize(outputs,new JsonSerializerOptions{WriteIndented=true}));
 Console.WriteLine("Wrote four serializer vectors and checked the vendor parser.");
+var files = new List<object>();
+foreach(int key in new[]{0,18,32,255}) {
+    var macro = new MacroItem {KeyId=(ControllerKey)key, Type=(MacroEnableType)1, Interval=100, CfgName="é猫"};
+    macro.Actions.Add(new MacroAction {KeyId=(ControllerKey)4, Event=(MacroActionEvent)1, Duration=0});
+    macro.Actions.Add(new MacroAction {KeyId=(ControllerKey)4, Event=(MacroActionEvent)0, Duration=50});
+    macro.Actions.Add(new MacroAction {KeyId=(ControllerKey)163, Event=(MacroActionEvent)2, Duration=150});
+    macro.Actions.Add(new MacroAction {KeyId=(ControllerKey)160, Event=(MacroActionEvent)2, Duration=200});
+    macro.Count=macro.Actions.Count;
+    byte[] raw=macro.ToByteArray();
+    if(!MacroItem.Parser.ParseFrom(raw).Equals(macro))throw new Exception("Macro file roundtrip failed");
+    files.Add(new {key,hex=Convert.ToHexString(raw).ToLowerInvariant()});
+}
+File.WriteAllText("macro-file-vectors.json",JsonSerializer.Serialize(files,new JsonSerializerOptions{WriteIndented=true}));
+Console.WriteLine("Wrote four vendor MacroItem file vectors.");

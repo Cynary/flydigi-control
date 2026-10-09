@@ -597,5 +597,32 @@ class UITests(unittest.TestCase):
             self.assertIsNone(self.window.worker)
 
 
+    def test_import_vendor_macro_creates_only_a_pc_copy(self):
+        import tempfile
+        from pathlib import Path
+        from test_vendor_macro import fixture
+        from flydigi_control import macro_library
+        panel = self.window.macro_library
+        with tempfile.TemporaryDirectory() as directory:
+            panel.folder = Path(directory)
+            imports = panel.folder/'imports'; imports.mkdir()
+            original = imports/'example.dat'; original.write_bytes(fixture())
+            (imports/'index.dat').write_bytes(b'not a macro')
+            self.window.open_macro_library()
+            self.assertEqual(panel.imports.count(), 1)
+            panel.import_vendor.setFocus(); self.press(Qt.Key.Key_Return)
+            records, errors = macro_library.entries(panel.folder)
+            self.assertEqual(len(records), 1); self.assertEqual(errors, [])
+            self.assertEqual(records[0][1].name, 'é猫')
+            self.assertEqual(original.read_bytes(), fixture())
+            self.assertIsNone(self.window.worker)
+            self.assertIsNone(self.window.macro_panel.snapshot)
+            for _ in range(3): self.app.processEvents()
+            self.assertLessEqual(self.window.minimumSizeHint().height(), 1080)
+            original.write_bytes(b'bad macro')
+            panel.import_vendor.click()
+            self.assertEqual(len(macro_library.entries(panel.folder)[0]), 1)
+
+
 if __name__ == '__main__':
     unittest.main()

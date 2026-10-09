@@ -15,3 +15,9 @@ It writes `macro-vendor-vectors.json`. The checked-in fixtures were generated
 this way and then compared with our encoder by `tests/test_macro_bank.py`.
 The synthetic version value 256 is a test input, not a claim that a hardware
 capture has confirmed the bank version on every controller.
+
+The harness also writes `macro-file-vectors.json`: four synthetic local-library
+MacroItem protobuf files using the vendor serializer, with its parser checked
+on the result. They cover default key zero, an ordinary button, Macro/None
+activation templates, UTF-8 names and multibyte durations. These are the same
+message type the official service writes to individual macro `.dat` files.
